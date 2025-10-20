@@ -1,10 +1,9 @@
-
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
-import { FilePlus2, Plus, Search, Trash, Pencil, CircleCheckBig,
-   Save, Layers, X, ArrowBigLeftDash, ArrowBigRightDash
-
-  } from 'lucide-react';
+import { FilePlus2, Plus, Search, Trash, Pencil, CircleCheckBig, Save, Layers, X } from 'lucide-react';
 import { Input } from '@/components/UI/input';
+import { SaveOutlined, SendOutlined } from '@ant-design/icons';
 
 import { axiosAPI } from '@/services/axiosAPI';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -131,30 +130,11 @@ const RegionOrderDetail: React.FC = () => {
   const [executorType, setexecutorType] = useState<any[]>([]);
   const [messageFileURL, setMessageFileURL] = useState("");
   const [showRecepModal, setshowRecepModal] = useState(false);
+
+
   const { currentUserInfo } = useAppSelector(state => state.info);
   const { order_types } = useAppSelector(state => state.product);
-  const [offset, setOffset] = useState<number>(0);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [limit] = useState<number>(20);
-  const totalPages = Math.ceil(totalCount / limit);
-	const currentPage = Math.floor(offset / limit) + 1;
-  const generatePageNumbers = () => {
-      const pages = [];
-      const maxVisible = 5;
-      let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-      let end = Math.min(totalPages, start + maxVisible - 1);
 
-      if (end - start < maxVisible - 1) {
-      start = Math.max(1, end - maxVisible + 1);
-      }
-
-      for (let i = start; i <= end; i++) {
-      pages.push(i);
-      }
-      return pages;
-	};
-  const [senderEmployeesLoading, setSenderEmployeesLoading] = useState(false);
-  
   const navigate = useNavigate();
 
   const fetchOrderDetail = useCallback(async () => {
@@ -213,64 +193,63 @@ const RegionOrderDetail: React.FC = () => {
   }, [file]);
 
 
-const handleFileAttach = useCallback(async () => {
-  if (!file || !orderData?.id || !documentFormData.filename) {
-    message.error('Fayl yoki ma\'lumotlar to\'liq emas!');
-    return;
-  }
-
-  const params = {
-    id: orderData.id,
-    file_name: documentFormData.filename,
-    extension: documentFormData.extension,
-    file_type: "ЗаявкаДокументПоРайон"
-  };
-
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const binary = new Uint8Array(arrayBuffer);
-    const response = await axiosAPI.post(`region-orders/files/create`, binary, {
-      params,
-      headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
-    });
-
-    if (response.status === 200) {
-      // Faqat kerakli state yangilanishlari
-      const newFileData = {
-        raw_number: (files.length + 1) + "",
-        user: currentUserInfo?.id || "",
-        file_name: file.name,
-        extension: file.name.split('.').pop()!,
-        date: new Date().toISOString()
-      };
-
-      // Files state yangilash
-      setFiles(prev => {
-        const exists = prev.some(f => f.file_name.toLowerCase() === file.name.toLowerCase());
-        return exists ? prev : [...prev, newFileData];
-      });
-
-      // Reset operations
-      setFile(null);
-      setDocumentFormData({
-        selectedDocumentType: '',
-        filename: '',
-        extension: '',
-        fileBinary: ''
-      });
-      
-      toast.success("Fayl muvaffaqiyatli yuklandi");
-      setFileUploadModal(false);
+  const handleFileAttach = useCallback(async () => {
+    if (!file || !orderData?.id || !documentFormData.filename) {
+      message.error('Fayl yoki ma\'lumotlar to\'liq emas!');
+      return;
     }
-  } catch (error) {
-    console.error('Error uploading file:', error);
-    message.error('Fayl yuklashda xatolik yuz berdi!');
-  }
-}, [file, orderData?.id, documentFormData.filename, documentFormData.extension, files.length, currentUserInfo?.id]);
 
+    const params = {
+      id: orderData.id,
+      file_name: documentFormData.filename,
+      extension: documentFormData.extension,
+      file_type: "ЗаявкаДокументПоРайон"
+    };
 
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const binary = new Uint8Array(arrayBuffer);
+      const response = await axiosAPI.post(`region-orders/files/create`, binary, {
+        params,
+        headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
+      });
 
-const fetchFiles = useCallback(async () => {
+      if (response.status === 200) {
+        await Promise.all([fetchOrderDetail(), fetchDocumentTypesList()]);
+        if (file) {
+          setDocumentFormData(prev => ({ ...prev!, filename: file.name, extension: file.name.split('.').pop()! }))
+          setFiles(prev => {
+            const exists = prev.some(f => (f.file_name || "").toLowerCase() === file.name.toLowerCase());
+            if (exists) {
+              toast("Bu fayl allaqachon biriktirilgan", { type: "warning" });
+              return prev;
+            }
+            return [...prev, {
+              raw_number: (prev.length + 1) + "",
+              user: currentUserInfo?.id || "",
+              file_name: file.name,
+              extension: file.name.split('.').pop()!,
+              date: new Date().toISOString()
+            }];
+          })
+        }
+        setFile(null);
+        setDocumentFormData({
+          selectedDocumentType: '',
+          filename: '',
+          extension: '',
+          fileBinary: ''
+        });
+        toast("Fayl muvaffaqiyatli yuklandi", { type: "success" });
+        setFileUploadModal(false);
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      message.error('Fayl yuklashda xatolik yuz berdi!');
+    }
+  }, [file, orderData?.id, documentFormData, fetchOrderDetail, fetchDocumentTypesList]);
+
+  const fetchFiles = useCallback(async () => {
     if (!id) return;
 
     try {
@@ -357,9 +336,9 @@ const fetchFiles = useCallback(async () => {
     }
   }, []);
 
-  const fetchEmployees = async (newOffset = 0)  => {
+  const fetchEmployees = async () => {
     try {
-      const response = await axiosAPI.get(`employees/list?=limit=${limit}&offset=${newOffset}`);
+      const response = await axiosAPI.get("employees/list");
       const type_response = await axiosAPI.get('enumerations/excuter_types');
 
       if (type_response.status === 200 && Array.isArray(type_response.data)) {
@@ -377,27 +356,21 @@ const fetchFiles = useCallback(async () => {
       console.error("Hodimlarni olishda xatolik:", error);
     }
   };
-  const EmployeshandleModalPageClick = (page: number) => {
-    const newOffset = (page - 1) * limit;
-      fetchEmployees(newOffset);
-  };
-  const fetchSenderEmployees = async (newOffset = 0) => {
+
+  const fetchSenderEmployees = async () => {
     try {
-      const response = await axiosAPI.get(`employees/list?region=Худудгазтаъминот&limit=${limit}&offset=${newOffset}`);
+      const response = await axiosAPI.get("employees/list?region=Худудгазтаъминот");
       if (response.status === 200 && Array.isArray(response.data.results)) {
+        console.log('wqeqw')
+        console.log(response.data.results)
+
         setSenderEmployees(response.data.results);
-        setTotalCount(response.data.count);
-			  setOffset(newOffset);
       } else {
         setSenderEmployees([]);
       }
     } catch (error) {
       console.error("Hodimlarni olishda xatolik:", error);
     }
-  };
-  const handleModalPageClick = (page: number) => {
-    const newOffset = (page - 1) * limit;
-      fetchSenderEmployees(newOffset);
   };
   const addSendToRepublic = async () => {
     try {
@@ -973,7 +946,7 @@ const fetchFiles = useCallback(async () => {
                       orderData.executors.map((executor, index) => (
                         <div
                           key={index}
-                          className="bg-white w-[300px] h-[160px] rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden"
+                          className="bg-white w-[280px] h-[160px] rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden"
                         >
                           <div className="p-5">
                             {/* Header with number and status */}
@@ -1012,6 +985,7 @@ const fetchFiles = useCallback(async () => {
                       </div>
                     )}
                   </div>
+
                 </div>
 
                 {/* Attach document */}
@@ -1031,6 +1005,8 @@ const fetchFiles = useCallback(async () => {
                       <span>Hujjat biriktirish</span>
                     </button>
                   </div>
+
+
                 </div>
 
                 {fileUploadModal && (
@@ -1202,8 +1178,8 @@ const fetchFiles = useCallback(async () => {
                   onClick={() => { fetchSenderEmployees(), setshowRecepModal(true); }}
                   aria-label="Saqlash"
                 >
-                  <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
-                    <Save className='w-3 h-3' />
+                  <div className='bg-white/20 p-1.5 rounded-md group-hover:bg-white/30 transition-colors'>
+                    <SendOutlined className='w-3 h-1' />
                   </div>
                   <span>Yuborish</span>
                 </button>
@@ -1252,7 +1228,7 @@ const fetchFiles = useCallback(async () => {
               </button>
             </div>
 
-            <div className="max-h-[400px] max-w-[800px] overflow-y-auto">
+            <div className="max-h-[400px] max-w-[900px] overflow-y-auto">
               {employees.length === 0 ? (
                 <div className="text-center py-6 text-gray-500">Ma'lumot topilmadi</div>
               ) : (
@@ -1345,42 +1321,7 @@ const fetchFiles = useCallback(async () => {
                 </table>
               )}
             </div>
-            {totalCount > limit && (
-						<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2 text-sm">
-						<span className="text-gray-600">
-							Jami: {totalCount} ta | Sahifa: {currentPage} / {totalPages}
-						</span>
 
-						<div className="flex flex-wrap justify-center gap-2">
-							<Button
-                size="middle"
-                disabled={currentPage === 1 || senderEmployeesLoading} 
-                onClick={() => EmployeshandleModalPageClick(currentPage - 1)}
-                >
-                <ArrowBigLeftDash className="w-4 h-4" />
-                </Button>
-
-                {generatePageNumbers().map((page) => (
-                <Button
-                  key={page}
-                  size="middle"
-                  type={page === currentPage ? "primary" : "default"}
-                  onClick={() => EmployeshandleModalPageClick(page)}
-                >
-                  {page}
-                </Button>
-                ))}
-
-                <Button
-                size="middle"
-                disabled={currentPage === totalPages || senderEmployeesLoading} 
-                onClick={() => EmployeshandleModalPageClick(currentPage + 1)} 
-                >
-                <ArrowBigRightDash className="w-4 h-4" />
-                </Button>
-              </div>
-              </div>
-            )}
             <div className="flex justify-end mt-5">
               <Button
                 type="primary"
@@ -1395,114 +1336,82 @@ const fetchFiles = useCallback(async () => {
 
 
       {showRecepModal && (
-				<div
-					className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-					onClick={() => setshowRecepModal(false)}
-				>
-					<div
-					className="bg-white rounded-lg w-[600px] p-6 shadow-lg"
-					onClick={(e) => e.stopPropagation()}
-					>
-					<div className="flex items-center justify-between border-b pb-3 mb-4">
-						<h2 className="text-lg font-semibold">Viloyatdan qabul qiluvchi xodimni tanlang</h2>
-						<button
-						className="text-xl font-bold hover:text-red-500"
-						onClick={() => setshowRecepModal(false)}
-						>
-						&times;
-						</button>
-					</div>
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => setshowRecepModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg w-[600px] p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h2 className="text-lg font-semibold">Respublikda qabul qiluvchi xodimdi tanlang</h2>
+              <button
+                className="text-xl font-bold hover:text-red-500"
+                onClick={() => setshowRecepModal(false)}
+              >
+                &times;
+              </button>
+            </div>
 
-					<div className="max-h-[400px] overflow-y-auto">
-						{loading ? ( // ✅ Modal uchun alohida loading
-						<div className="text-center py-6 text-gray-500">Yuklanmoqda...</div>
-						) : sender_employees.length === 0 ? (
-						<div className="text-center py-6 text-gray-500">Ma'lumot topilmadi</div>
-						) : (
-						<table className="w-full border-collapse">
-							<thead className="bg-gray-50 border-b">
-							<tr>
-								<th className="text-center px-4 py-2 text-sm font-semibold">Tanlash</th>
-								<th className="text-left px-4 py-2 text-sm font-semibold">F.I.Sh.</th>
-								<th className="text-center px-4 py-2 text-sm font-semibold">Lavozimi</th>
-							</tr>
-							</thead>
-							<tbody>
-							{sender_employees.map((emp, index) => (
-								<tr key={index} className="hover:bg-blue-50 transition">
-								<td className="px-4 py-2 text-center">
-									<input
-									type="checkbox"
-									onChange={(e) => {
-										if (e.target.checked) {
-										setSenderToRepublic({
-											order_id: orderData?.id || "",
-											receiver_republic: emp.id,
-											receiver_republic_name: emp.name,
-										});
-										} else {
-										setSenderToRepublic(null);
-										}
-									}}
-									checked={SenderToRepublic?.receiver_republic === emp.id}
-									/>
-								</td>
-								<td className="px-4 py-2 text-sm text-gray-800">{emp.name}</td>
-								<td className="px-4 py-2 text-sm text-gray-800">{emp.position}</td>
-								</tr>
-							))}
-							</tbody>
-						</table>
-						)}
-					</div>
+            <div className="max-h-[400px] max-w-[700px] overflow-y-auto">
+              {sender_employees.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">Ma'lumot topilmadi</div>
+              ) : (
+                <table className="w-full border-collapse">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-center px-4 py-2 text-sm font-semibold">Tanlash</th>
+                      <th className="text-left px-4 py-2 text-sm font-semibold">F.I.Sh.</th>
+                      <th className="text-center px-4 py-2 text-sm font-semibold">Lavozimi</th>
 
-					{/* Pagination */}
-					{totalCount > limit && (
-						<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2 text-sm">
-						<span className="text-gray-600">
-							Jami: {totalCount} ta | Sahifa: {currentPage} / {totalPages}
-						</span>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sender_employees.map((emp, index) => {
+                      return (
+                        <tr
+                          key={index}
+                          className={`hover:bg-blue-50 transition }`}
+                        >
+                          <td className="px-4 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSenderToRepublic({
+                                    order_id: orderData?.id || "",
+                                    receiver_republic: emp.id,
+                                    receiver_republic_name: emp.name,
+                                  });
+                                } else {
+                                  setSenderToRepublic(null);
+                                }
+                              }}
+                              checked={SenderToRepublic?.receiver_republic === emp.id}
+                            />
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-800">{emp.name}</td>
+                          <td className="px-4 py-2 text-sm text-gray-800">{emp.position}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
 
-						<div className="flex flex-wrap justify-center gap-2">
-							<Button
-							size="middle"
-							disabled={currentPage === 1 || senderEmployeesLoading} 
-							onClick={() => handleModalPageClick(currentPage - 1)}
-							>
-							<ArrowBigLeftDash className="w-4 h-4" />
-							</Button>
-
-							{generatePageNumbers().map((page) => (
-							<Button
-								key={page}
-								size="middle"
-								type={page === currentPage ? "primary" : "default"}
-								onClick={() => handleModalPageClick(page)}
-							>
-								{page}
-							</Button>
-							))}
-
-							<Button
-							size="middle"
-							disabled={currentPage === totalPages || senderEmployeesLoading} 
-							onClick={() => handleModalPageClick(currentPage + 1)} 
-							>
-							<ArrowBigRightDash className="w-4 h-4" />
-							</Button>
-						</div>
-						</div>
-					)}
-
-					<div className="flex justify-end mt-5">
-						<Button type="primary" onClick={addSendToRepublic}>
-						Saqlash
-						</Button>
-					</div>
-					</div>
-				</div>
-			)}
-
+            <div className="flex justify-end mt-5">
+              <Button
+                type="primary"
+                onClick={addSendToRepublic}
+              >
+                Saqlash
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <Modal
         title={
           deleteModalError

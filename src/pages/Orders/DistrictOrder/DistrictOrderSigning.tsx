@@ -20,6 +20,7 @@ import webSocketService from "@/services/webSocket";
 import FilePreviewModal from "@/components/files/FilePreviewModal";
 import FilePreviewer from "@/components/files/FilePreviewer";
 import { arrayBufferToFile, inferMimeFromExt } from "@/utils/file_preview";
+import { number } from "framer-motion";
 
 function capitalizeWords(str: string): string {
   return str
@@ -167,7 +168,8 @@ const DistrictOrderSigning: React.FC = () => {
   const [eImzoOpen, setEImzoOpen] = useState(false);
   const [certificates, setCertificates] = useState<CertificateParsed[]>([]);
   const [keyID, setKeyID] = useState("")
-  const [selectedCertificate, setSelectedCertificate] = useState<CertificateDetails | null>(null);
+  const [selectedCertificate, setSelectedCertificate] =
+    useState<CertificateDetails | null>(null);
 
   // 📌 Buyurtma tafsilotlarini olish
   const fetchOrderDetail = useCallback(async () => {
