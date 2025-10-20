@@ -1,13 +1,3 @@
-// import React from 'react'
-
-// function ApplicationLetterForm() {
-//   return (
-//     <div>ApplicationLetterForm</div>
-//   )
-// }
-
-// export default ApplicationLetterForm
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import React, { useState } from 'react'
@@ -17,6 +7,7 @@ import { axiosAPI } from '@/services/axiosAPI';
 import AppProductsStep from './AppProductsStep';
 import FormingCoverLetter from './FormingCoverLetter';
 import Negotiators from './Negotiators';
+import { useNavigate } from 'react-router-dom';
 
 interface IPriceAnalysisFormProps {
   setIsCreateFormModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -27,6 +18,7 @@ const ApplicationLetterForm: React.FC<IPriceAnalysisFormProps> = ({ setIsCreateF
   const [formData, setFormData] = useState<any>();
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   // Step configuration
   const steps = [
@@ -139,7 +131,9 @@ const ApplicationLetterForm: React.FC<IPriceAnalysisFormProps> = ({ setIsCreateF
               {steps[currentStep]?.title} - Qadam {currentStep + 1}/{steps.length}
             </p>
           </div>
-          <Button type='text' size='large' style={{ fontSize: "24px" }}>
+          <Button
+            onClick={() => navigate(-1)}
+            type='text' size='large' style={{ fontSize: "24px" }}>
             &times;
           </Button>
         </div>
