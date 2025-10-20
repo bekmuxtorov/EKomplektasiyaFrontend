@@ -75,7 +75,7 @@ const RegionOrder: React.FC = () => {
     offset: 0,
     results: [],
   });
-  // FIX: statusCounts endi backenddan to‘g‘ridan-to‘g‘ri olinadi
+  
   const [statusCounts, setStatusCounts] = useState<{
     all: number;
     approved: number;
@@ -119,7 +119,7 @@ const RegionOrder: React.FC = () => {
       setDistricts(res.filter_by_districts ?? []);
       setData(res.results ?? []);
 
-      // totalItems — pagination ko'rsatkichlari
+      
       setTotalItems({
         count: res.count ?? 0,
         limit: itemsPerPage,

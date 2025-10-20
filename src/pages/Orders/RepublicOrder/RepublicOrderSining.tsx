@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
+import { Input } from '@/components/UI/input';
 import { FilePlus2, Plus, Search, Trash, Pencil } from 'lucide-react';
 import { axiosAPI } from '@/services/axiosAPI';
 import { useParams } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
-import { Button, Modal, message, Select, Radio, Table,Input as AntInput } from 'antd';
+import { Button, Modal, message, Select, Radio, Table, Input as AntInput } from 'antd';
 const { TextArea } = AntInput;
 import {
   EyeOutlined, DownloadOutlined, FilePdfOutlined, FileWordOutlined, FileExcelOutlined, FileImageOutlined, FileTextOutlined,
@@ -17,7 +17,6 @@ import FilePreviewModal from "@/components/files/FilePreviewModal";
 import { arrayBufferToFile, inferMimeFromExt } from "@/utils/file_preview";
 import FilePreviewer from '@/components/files/FilePreviewer';
 import webSocketService from "@/services/webSocket";
-
 
 function capitalizeWords(str: string): string {
   return str
@@ -53,6 +52,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
   return btoa(binary);
 }
+
 
 interface IdName {
   id: string;
@@ -113,9 +113,6 @@ interface FileData {
   date: string;
 }
 
-interface RegionOrderSiningProps {
-  for_purpose: "signing" | "for_agreement"
-}
 
 interface DocumentFormData {
   selectedDocumentType: string;
@@ -145,12 +142,11 @@ interface CertificateDetails {
   arguments: string[];
 }
 
-
-
-const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
+const RepublicOrderSining: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   
   const [orderData, setOrderData] = useState<OrderDetail | null>(null);
+  console.log(orderData, 'wae12312')
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState<FileData[]>([]);
   const [open, setOpen] = useState(false);
@@ -161,8 +157,6 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
   const [fileUploadModal, setFileUploadModal] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [documentTypes, setDocumentTypes] = useState<IdName[]>([]);
-  const [eImzoOpen, setEImzoOpen] = useState(false);
-  
   const [documentFormData, setDocumentFormData] = useState<DocumentFormData>({
       selectedDocumentType: '',
       filename: '',
@@ -187,6 +181,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
   const [certificates, setCertificates] = useState<CertificateParsed[]>([]);
   const [keyID, setKeyID] = useState("")
   const [selectedCertificate, setSelectedCertificate] = useState<CertificateDetails | null>(null);
+  const [eImzoOpen, setEImzoOpen] = useState(false);
   
   const [signingData, setSigningData] = useState<{
       document_name: string;
@@ -194,7 +189,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
       data: any;
       number:number;
     }>({
-      document_name: "ЗаявкаПоРегионам",
+      document_name: "ЗаявкаПоРеспублика",
       number:0,
       id: id ?? "",
       data: ""
@@ -224,10 +219,11 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
     setComment("");
   };
 
+  // Saqlash funksiyasini qo'shing
   const handleSave = async () => {
     try {
         if (!orderData) return;
-        const response = await axiosAPI.post(`/region-orders/update/${orderData.id}`, {
+        const response = await axiosAPI.post(`/republic-orders/update/${orderData.id}`, {
           ...orderData,
           products: orderData.products.map(p => ({
             ...p,
@@ -262,54 +258,55 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
     setModalOpen(false);
   };
   
+  
   const handleView = async (f: FileData) => {
-      try {
-        setSelectedFileMeta(f);
-        const res = await axiosAPI.get(
-          `region-orders/${id}/file/${f.raw_number}`,
-          { responseType: "arraybuffer" }
-        );
-        const suggestedName =
-          f.file_name ||
-          `${orderData?.exit_number || "file"}-${f.raw_number}.${f.extension}`;
-        const mime =
-          inferMimeFromExt(suggestedName) ||
-          inferMimeFromExt(f.extension) ||
-          "application/octet-stream";
-        setPreviewFile(arrayBufferToFile(res.data, suggestedName, mime));
-        setPreviewOpen(true);
-      } catch (e) {
-        console.error(e);
-        toast("Faylni ochib bo‘lmadi", { type: "error" });
-      }
+        try {
+          setSelectedFileMeta(f);
+          const res = await axiosAPI.get(
+            `republic-orders/${id}/file/${f.raw_number}`,
+            { responseType: "arraybuffer" }
+          );
+          const suggestedName =
+            f.file_name ||
+            `${orderData?.exit_number || "file"}-${f.raw_number}.${f.extension}`;
+          const mime =
+            inferMimeFromExt(suggestedName) ||
+            inferMimeFromExt(f.extension) ||
+            "application/octet-stream";
+          setPreviewFile(arrayBufferToFile(res.data, suggestedName, mime));
+          setPreviewOpen(true);
+        } catch (e) {
+          console.error(e);
+          toast("Faylni ochib bo‘lmadi", { type: "error" });
+        }
   };
 
 
   const handleDownloadFile = async (f: FileData) => {
-      try {
-        const res = await axiosAPI.get(
-          `region-orders/${id}/file/${f.raw_number}`,
-          { responseType: "blob" }
-        );
-        const url = URL.createObjectURL(res.data as Blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download =
-          f.file_name ||
-          `${orderData?.exit_number || "file"}-${f.raw_number}.${f.extension}`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        console.error(e);
-        toast("Yuklab olishda xatolik", { type: "error" });
-      }
-  };
+        try {
+          const res = await axiosAPI.get(
+            `republic-orders/${id}/file/${f.raw_number}`,
+            { responseType: "blob" }
+          );
+          const url = URL.createObjectURL(res.data as Blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download =
+            f.file_name ||
+            `${orderData?.exit_number || "file"}-${f.raw_number}.${f.extension}`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error(e);
+          toast("Yuklab olishda xatolik", { type: "error" });
+        }
+    };
 
 
   const fetchOrderDetail = useCallback(async () => {
     if (!id) return;
     try {
-      const response = await axiosAPI.get(`region-orders/detail/${id}`);
+      const response = await axiosAPI.get(`republic-orders/detail/${id}`);
       setOrderData(response.data[0]);
     } catch (error) {
       console.log(error)
@@ -326,7 +323,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
   useEffect(() => {
     const fetchFiles = async () => {
       try {
-        const response = await axiosAPI.get(`region-orders/${id}/files/list`);
+        const response = await axiosAPI.get(`republic-orders/${id}/files/list`);
         if (Array.isArray(response.data)) {
           setFiles(response.data);
         } else {
@@ -339,10 +336,12 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
       }
     };
 
+    
+
     const fetchMessageFile = async () => {
           try {
             const response = await axiosAPI.get(
-              `region-orders/${id}/order-file/`
+              `republic-orders/${id}/order-file/`
             );
             const fileUrl = response.data.file_url;
             const fileName = fileUrl.split("/").pop() || "file";
@@ -365,12 +364,15 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
             console.error("Message file error:", error);
           }
     };
-    
+
+
     if (id) {
       fetchFiles();
       fetchMessageFile();
     }
-    }, [id]);
+  }, [id]);
+
+
 
   const formatDate = (iso: string): string => {
     const date = new Date(iso);
@@ -405,7 +407,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
     }
   };
 
-  const signingDocument = useCallback(async () => {
+    const signingDocument = useCallback(async () => {
       try {
         const response = await axiosAPI.post("signing/upload", signingData)
         if (response.status === 200) {
@@ -505,7 +507,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
       
       console.log('📡 Serverga soʻrov yuborilmoqda...');
       
-      const response = await axiosAPI.post(`region-orders/files/create`, binary, {
+      const response = await axiosAPI.post(`republic-orders/files/create`, binary, {
         params,
         headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
       });
@@ -589,7 +591,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
         <div className="max-w-8xl mx-auto bg-white">
 
           {orderData.for_purpose === "signing" ?  (
-              <div className="p-6 bg-gray-50 rounded-lg shadow-sm mb-8 relative">
+          <div className="p-6 bg-gray-50 rounded-lg shadow-sm mb-8 relative">
                 <Button
                     onClick={() => {
                       setEImzoOpen(true);
@@ -609,8 +611,8 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
                     </div>
                   )}
               </div>
-              ) : (
-              <>
+            ) : (
+                <>
               <div className="p-6 bg-gray-50 rounded-lg shadow-sm mb-8 relative">
                 <Button type="primary" onClick={handleModalOpen}>
                   Kelishish
@@ -746,7 +748,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">№</th>
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Xabar xolati</th>
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Imzolovchi xodim</th>
-                                      <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Lavozim</th>
+                                      {/* <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Lavozim</th> */}
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Izoh</th>
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Sana</th>
                                     </tr>
@@ -755,9 +757,9 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
                                     {orderData.executors?.map((executor, index) => (
                                       <tr key={index} className="hover:bg-indigo-50 transition-colors">
                                         <td className="text-center px-6 py-4 text-sm text-gray-700">{index + 1}</td>
-                                        <td className="text-center px-6 py-4 text-sm text-gray-700">{executor.status_message?.name}</td>
+                                        <td className="text-center px-6 py-4 text-sm text-gray-700">{executor.answer_type?.name}</td>
                                         <td className="text-center px-6 py-4 text-sm text-gray-700 font-medium">{executor.executor?.name}</td>
-                                        <td className="text-center px-6 py-4 text-sm text-gray-700"></td>
+                                        {/* <td className="text-center px-6 py-4 text-sm text-gray-700">{}</td> */}
                                         <td className="text-center px-6 py-4 text-sm text-gray-700">{executor.description}</td>
                                         <td className="text-center px-6 py-4 text-sm text-gray-700">{executor.confirmation_date}</td>
                                       </tr>
@@ -879,6 +881,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
                               </p>
                             )}
           </div>
+
         </div>
       </div>
 
@@ -897,7 +900,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
         open={eImzoOpen}
         onCancel={() => {
           setEImzoOpen(false);
-          webSocketService.disconnect();
+          webSocketService.disconnect()
           setSelectedCertificate(null);
         }}
         style={{ minWidth: "800px" }}
@@ -919,44 +922,39 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
           rowKey="name"
           dataSource={certificates}
           pagination={false}
+          // (ixtiyoriy) vizual ogohlantirish – expired qatorda qizil fon
           rowClassName={(record: CertificateParsed) =>
-            isExpired(record.validTo)
-              ? "bg-red-50 text-red-600"
-              : selectedCertRow?.name === record.name
-              ? "bg-blue-50"
-              : ""
+            isExpired(record.validTo) ? "bg-red-50 text-red-600" : ""
           }
           rowSelection={{
             type: "radio",
+            // tanlangan qator kalitiga name dan foydalanamiz
             selectedRowKeys: selectedCertRow ? [selectedCertRow.name] : [],
+            // 🔒 expired bo'lsa tanlashni o'chiramiz
             getCheckboxProps: (record: CertificateParsed) => ({
               disabled: isExpired(record.validTo),
-              title: isExpired(record.validTo)
-                ? "Muddati tugagan — tanlab bo‘lmaydi"
-                : undefined,
+              title: isExpired(record.validTo) ? "Muddati tugagan — tanlab bo‘lmaydi" : undefined,
             }),
-          }}
-          onRow={(record: CertificateParsed) => ({
-            onClick: () => {
-              if (isExpired(record.validTo)) {
-                toast("Bu kalitning muddati tugagan, tanlab bo‘lmaydi.", {
-                  type: "warning",
-                });
+            onChange: (_keys, selectedRows) => {
+              const cert = (selectedRows[0] as CertificateParsed) || null;
+              if (!cert) {
+                setSelectedCertRow(null);
+                setSelectedCertificate(null);
                 return;
               }
-              setSelectedCertRow(record);
+              if (isExpired(cert.validTo)) {
+                // teoriya bo‘yicha buni bosib bo‘lmaydi, lekin baribir xavfsizlik uchun
+                toast("Bu kalitning muddati tugagan, tanlab bo‘lmaydi.", { type: "warning" });
+                return;
+              }
+              setSelectedCertRow(cert);
               setSelectedCertificate({
                 plugin: "pfx",
                 name: "load_key",
-                arguments: [
-                  `${record.disk}`,
-                  `${record.path}`,
-                  `${record.name}`,
-                  `${record.alias}`,
-                ],
+                arguments: [`${cert.disk}`, `${cert.path}`, `${cert.name}`, `${cert.alias}`],
               });
             },
-          })}
+          }}
           columns={[
             { title: "Disk", dataIndex: "disk", key: "disk" },
             { title: "Joylashuvi", dataIndex: "path", key: "path" },
@@ -975,11 +973,11 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
             },
           ]}
         />
+
+
       </Modal>
-
-
     </>
   );
 };
 
-export default RegionOrderSining;
+export default RepublicOrderSining;

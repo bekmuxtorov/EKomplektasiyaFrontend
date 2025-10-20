@@ -49,7 +49,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-slate-50 from-slate-100 via-white to-slate-100 flex items-center justify-center px-4">
       <div className="w-full max-w-[960px] grid md:grid-cols-2 gap-0 overflow-hidden rounded-2xl shadow-xl border border-slate-200 bg-white">
         {/* Brand / Illustration side */}
         <div className="hidden md:flex flex-col justify-between bg-gradient-to-br from-[#1E56A0] to-[#1E56A0]/80 p-8 text-white">
@@ -59,7 +59,7 @@ const Login: React.FC = () => {
                 <img src={logo} alt="logo" className="w-9 h-9 drop-shadow-sm object-cover" />
               </span>
             </span>
-            <div className="font-semibold text-lg">EKomplektatsiya</div>
+            <div className="font-semibold text-lg">E-Komplektasiya</div>
           </div>
           <div className="mt-8 space-y-3">
             <h2 className="text-2xl font-semibold leading-snug">
@@ -71,7 +71,7 @@ const Login: React.FC = () => {
             </p>
           </div>
           <div className="text-xs text-white/80">
-            © {new Date().getFullYear()} EKomplektatsiya
+            © {new Date().getFullYear()} E-Komplektasiya
           </div>
         </div>
 
@@ -81,7 +81,7 @@ const Login: React.FC = () => {
             <span className="bg-[#1E56A0] p-3 rounded-xl">
               <LucideBuilding2 size={24} color="white" />
             </span>
-            <div className="font-semibold text-lg text-slate-800">EKomplektatsiya</div>
+            <div className="font-semibold text-lg text-slate-800">E-Komplektasiya</div>
           </div>
 
           <div className="mb-6">

@@ -153,8 +153,10 @@ const DistrictOrderSigning: React.FC = () => {
     document_name: string;
     id: string;
     data: any;
+    number:number;
   }>({
-    document_name: "Asadbek",
+    document_name: "ЗаявкаПоРайонам",
+    number:0,
     id: id ?? "",
     data: ""
   });
@@ -165,8 +167,7 @@ const DistrictOrderSigning: React.FC = () => {
   const [eImzoOpen, setEImzoOpen] = useState(false);
   const [certificates, setCertificates] = useState<CertificateParsed[]>([]);
   const [keyID, setKeyID] = useState("")
-  const [selectedCertificate, setSelectedCertificate] =
-    useState<CertificateDetails | null>(null);
+  const [selectedCertificate, setSelectedCertificate] = useState<CertificateDetails | null>(null);
 
   // 📌 Buyurtma tafsilotlarini olish
   const fetchOrderDetail = useCallback(async () => {
@@ -207,6 +208,11 @@ const DistrictOrderSigning: React.FC = () => {
         const fileUrl = response.data.file_url;
         const fileName = fileUrl.split("/").pop() || "file";
         const fileExt = (fileName.split(".").pop() || "").toLowerCase();
+        setSigningData((prev) => ({
+          ...prev,
+          number: fileName.split(".docm")[0],
+        }));
+        
         const mime =
           inferMimeFromExt(fileName) ||
           inferMimeFromExt(fileExt) ||
