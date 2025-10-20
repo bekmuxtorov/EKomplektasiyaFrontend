@@ -1,17 +1,18 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback, useEffect, useState } from "react";
 import Typography from "@mui/material/Typography";
 import { Button, Input, InputNumber, Popconfirm, Select, message } from "antd";
-import { FilePlus2, Pencil, Plus, Trash2 } from "lucide-react";
+import { FilePlus2, Pencil, Plus, Trash2,Layers,Search } from "lucide-react";
 import { axiosAPI } from "@/services/axiosAPI";
 import { useAppSelector } from "@/store/hooks/hooks";
-import { DownloadOutlined, EyeOutlined, FileExcelOutlined, FileImageOutlined, FilePdfOutlined, FileTextOutlined, FileWordOutlined } from "@ant-design/icons";
+import { DownloadOutlined, EyeOutlined, FileExcelOutlined, 
+  FileImageOutlined, FilePdfOutlined, FileTextOutlined, FileWordOutlined
+
+} from "@ant-design/icons";
 import FieldModal from "@/components/modal/FieldModal";
 import FileDropZone from "@/components/FileDropZone";
 import TextArea from "antd/es/input/TextArea";
 import { toast } from "react-toastify";
-
+import SelectRemainsModal from '@/components/CreateForms/SelectRemainsModal';
 // ===== Types =====
 type ID = string;
 
@@ -56,8 +57,8 @@ interface FormDataType {
 
 interface DocumentInfo {
   id: string;
-  type_document_for_filter: string; // "Вилоятдан" | "Тумандан"
-  application_status_district: string; // "Bekor qilingan" va h.k.
+  type_document_for_filter: string;
+  application_status_district: string;
   confirmation_date: string;
   is_approved: boolean;
   is_seen: boolean;
@@ -133,8 +134,28 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
   const { currentUserInfo } = useAppSelector(state => state.info);
   const { order_types } = useAppSelector(state => state.product);
   const [executorType, setexecutorType] = useState<any[]>([]);
+  const [remainders, setRemainders] = useState<ProductRemainder[]>([]);
+  const [showRemainders, setShowRemainders] = useState(false);
   
-  console.log(order_types)
+  const fetchRemaindersUserWarehouse = useCallback(async () => {
+      try {
+        const response = await axiosAPI.get(`/warehouses/list?region=${currentUserInfo?.region.name}&district=${currentUserInfo?.district.name}`);
+        if (response.status === 200) {
+          const warehouseId = response.data[0].id;
+          const remaindersResponse = await axiosAPI.post("remainders/warehouses", {
+            warehouse: warehouseId,
+            date: new Date().toISOString()
+          });
+          if (remaindersResponse.status === 200) {
+            setRemainders(remaindersResponse.data);
+            setShowRemainders(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching remainders:', error);
+        message.error('Qoldiqlarni olishda xatolik yuz berdi!');
+      }
+  }, [currentUserInfo?.region.name, currentUserInfo?.district.name]);
 
 
   const handleView = async (f: FileData) => {
@@ -324,6 +345,7 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
         order_type: p.order_type,
         description: p.description || "",
       })),
+      goods_received:[],
       executors: formattedExecutors,
     };
   
@@ -464,7 +486,6 @@ const handleCreateDefaultDocument = useCallback(async () => {
     <>
       <div className="min-h-screen py-2 px-2 bg-white">
         <div className="max-w-8xl mx-auto bg-white">
-          {/* Header – hozircha bo'sh, keyin to'ldiriladi */}
           <div className="bg-white overflow-hidden flex items-center w-full">
             {documentConfirmed ? (
               <Button
@@ -482,11 +503,9 @@ const handleCreateDefaultDocument = useCallback(async () => {
                 cancelText="Bekor qilish"
                 className="mr-6"
                 onCancel={() => {
-                  // Delete created document and get back
                   setIsCreateFormModalOpen(false)
                 }}
                 onConfirm={() => {
-                  // Save created document and get back
 
                 }}
               >
@@ -541,55 +560,74 @@ const handleCreateDefaultDocument = useCallback(async () => {
             </div>
           </div>
 
-          {/* ===== Tovarlar ro'yxati ===== */}
+          
           <div>
-            <Typography fontSize={"20px"} style={{ margin: "20px 0" }} fontWeight={600} color="#0f172b">
-              Buyurtma uchun berilgan tovarlar ro‘yxati
-            </Typography>
-
+            <br />
             <div className="bg-transparent rounded-md flex justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Button className="cursor-pointer" onClick={addRow}>
-                  <Plus size={18} />
+              <div>
+                <h1 className='text-xl text-[#000] font-semibold'>Buyurtma uchun berilgan tovarlar ruyxati</h1>
+              </div>
+              <div className='flex items-center gap-3'>
+                <button
+                  onClick={addRow}
+                  className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
+                >
+                  <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
+                    <Plus className='w-3.5 h-3.5' />
+                  </div>
                   Kiritish
-                </Button>
-                <Button className="cursor-pointer">Qoldiqlar</Button>
+                </button>
+                <button
+                  className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
+                  onClick={fetchRemaindersUserWarehouse}>
+                  <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
+                    <Layers className='w-3.5 h-3.5' />
+                  </div>
+                  Qoldiqlar
+                </button>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Qidirish (Ctrl+F)"
+                    className="w-64 h-9 pl-9 text-sm border-slate-200 bg-white"
+                  />
+                </div>
               </div>
             </div>
-
-            <div className="bg-white rounded-xl mb-6 overflow-x-auto">
-              <div className="min-w-[1000px]">
-                <table className="w-full">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-y-auto mb-4">
+              <div className="overflow-x-auto">
+                <table className="w-full caption-bottom text-sm">
                   <thead className="bg-gray-50 border-b-2">
-                    <tr>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                    <tr className="[&_tr]:border-b bg-gradient-to-r from-slate-100 via-blue-50 to-purple-50">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         №
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Buyurtma turi
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Tovar nomi
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Tovar turi
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Model
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         O'lcham
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         O'lchov birligi
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Soni
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Izoh
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         -
                       </th>
                     </tr>
@@ -793,16 +831,9 @@ const handleCreateDefaultDocument = useCallback(async () => {
                       })
                     ) : (
                       <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td className="px-4 py-2 text-red-500 text-lg font-semibold">Tovar tanlanmagan</td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
+                        <td colSpan={10} className="py-6 text-center text-gray-500 text-md font-semibold">
+                            Tovar qo'shilmagan
+                          </td>
                       </tr>
                     )}
                   </tbody>
@@ -880,33 +911,29 @@ const handleCreateDefaultDocument = useCallback(async () => {
 
           {/* ===== Imzolovchilar ro'yxati (skelet) ===== */}
           <div className="mt-12">
-            <Typography fontSize={"20px"} style={{ margin: "20px 0" }} fontWeight={600} color="#0f172b">
-              Imzolovchilar ro‘yxati
-            </Typography>
-
             <div className="bg-transparent rounded-md p-2 flex justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <Button
-                  className='cursor-pointer'
-                  onClick={() => {
-                    fetchEmployees();
-                    setShowEmployeeModal(true);
-                  }}
+              <div>
+                <h1 className='text-xl text-[#000] font-semibold'>Imzolovchilar</h1>
+              </div>
+              <div className='flex items-center gap-3'>
+                <button className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
+                  onClick={() => { fetchEmployees(), setShowEmployeeModal(true); }}
                 >
-                  <Plus size={18} />
+                  <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
+                    <Plus className='w-3.5 h-3.5' />
+                  </div>
                   Kiritish
-                </Button>
-                <Button className="cursor-pointer">Yuborish</Button>
+                </button>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl mb-6 overflow-x-auto">
-              <div className="min-w-[1000px]">
-                {/* Executors cards grid */}
-                <div className="grid grid-cols-4 gap-6">
-                  {formData.executors.length ? (
-                    formData.executors.map((ex, index) => (
-                      <div key={index} className="bg-white border shadow-xl p-4 rounded-xl flex flex-col gap-4 relative">
+            <div className="flex flex-wrap items-center gap-4">
+              {formData.executors.length ? (
+                  formData.executors.map((ex, index) => (
+                    <div
+                          key={index}
+                          className="bg-white w-[300px] h-[160px] rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden"
+                        >
                         <button className="absolute right-0 top-0 text-xl bg-red-500 text-white w-[26px] flex items-center justify-center h-[26px] rounded-bl-md cursor-pointer"
                           onClick={() => {
                             setFormData(prev => ({
@@ -933,14 +960,11 @@ const handleCreateDefaultDocument = useCallback(async () => {
                         </p>
                       </div>
                     ))
-                  ) : (
-                    <div>
-                      <h2 className="text-2xl font-semibold text-center text-red-400">Imzolovchi yo'q</h2>
-                    </div>
-                  )}
+              ) : (
+                <div>
+                  <h2 className="text-2xl font-semibold text-center text-red-400">Imzolovchi yo'q</h2>
                 </div>
-
-              </div>
+              )}
             </div>
           </div>
 
@@ -1073,8 +1097,11 @@ const handleCreateDefaultDocument = useCallback(async () => {
           </div>
         </div>
       </div>
-
-      {/* 🟣 Hodim tanlash modali (multiple selection) */}
+      {
+        showRemainders && (
+          <SelectRemainsModal onClose={() => setShowRemainders(false)} remainders={remainders} />
+        )
+      }
       {showEmployeeModal && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"

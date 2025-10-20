@@ -1,10 +1,10 @@
 import React from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import {
-  DistrictOrder, DistrictOrderDetail, Home, Login, ProductInputDetailPage, ProductOutDetailPage,
-  ProductOutput, ProductsInput, ProductTurnOverReport, RegionOrder, RegionOrderDetail, WarehouseTransfer,
-  WarehouseTransferDetail, KomplektasiyaOrder,
-  PriceAnalysis
+import { 
+    DistrictOrder, DistrictOrderDetail, Home, Login, ProductInputDetailPage, ProductOutDetailPage,
+    ProductOutput, ProductsInput, ProductTurnOverReport, RegionOrder, RegionOrderDetail, WarehouseTransfer,
+    WarehouseTransferDetail, KomplektasiyaOrder, ComplektasiyaDetail,
+    PriceAnalysis
 } from "@/pages";
 import { Layout } from "@/components";
 import { Toaster } from "react-hot-toast";
@@ -13,7 +13,7 @@ import ProductMaterialsBalance from "./pages/Reports/ProductMaterialsBalance";
 import RepublicOrder from "./pages/Orders/RepublicOrder/RepublicOrder";
 import RepublicOrderDetail from "./pages/Orders/RepublicOrder/RepublicOrderDetail";
 import Profile from "./pages/Profile/Profile";
-import ComplektasiyaOrderDetail from "./pages/Orders/Complektasiya/ComplektasiyaOrderDetail";
+import ApplicationLetter from "./components/CreateForms/ApplicationLetterForm/ApplicationLetter";
 
 const routes = createBrowserRouter([
   {
@@ -90,7 +90,7 @@ const routes = createBrowserRouter([
         children: [
           {
             path: "order-details/:id",
-            element: <ComplektasiyaOrderDetail />
+            element: <ComplektasiyaDetail/>
           }
         ]
       },
@@ -109,7 +109,12 @@ const routes = createBrowserRouter([
       {
         path: "price-analysis",
         element: <PriceAnalysis />
+      },
+      {
+        path: "appeal-letter",
+        element: <ApplicationLetter/>
       }
+
     ],
   },
   {

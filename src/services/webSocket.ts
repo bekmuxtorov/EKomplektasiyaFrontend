@@ -7,7 +7,7 @@ class WebSocketService {
   private url: string = "";
   private messageCallback: MessageCallback | null = null;
   private reconnectTimeout: number | null = null;
-  private reconnectInterval = 3000; // ms
+  private reconnectInterval = 3000;
   private manuallyClosed = false;
 
   /**
