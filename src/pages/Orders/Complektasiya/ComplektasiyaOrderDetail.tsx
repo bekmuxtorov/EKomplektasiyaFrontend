@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FilePlus2, Plus, Search, Trash, Pencil, CircleCheckBig, Save, Layers, X } from 'lucide-react';
+import { CircleCheckBig, FilePlus2, Plus, Save, Search, Trash } from 'lucide-react';
 import { Input } from '@/components/UI/input';
+import { SaveOutlined } from '@ant-design/icons';
 
 import { axiosAPI } from '@/services/axiosAPI';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Button, message, Modal, Select } from 'antd';
+import { useParams } from 'react-router-dom';
+import { Button, message, Modal, Pagination, Select } from 'antd';
 import TextArea from 'antd/es/input/TextArea';
 import FileDropZone from '@/components/FileDropZone';
 import {
@@ -13,8 +14,7 @@ import {
 import SelectRemainsModal from '@/components/CreateForms/SelectRemainsModal';
 import { toast } from 'react-toastify';
 import { useAppSelector } from '@/store/hooks/hooks';
-import ComplektatsiyaOrderSining from './ComplektatsiyaOrderSining';
-import FieldModal from '@/components/modal/FieldModal';
+
 
 interface IdName {
   id: string;
@@ -23,28 +23,21 @@ interface IdName {
 
 interface Product {
   row_number: number;
-  product: string;
-  model: IdName | null;
-  product_type: IdName | null;
-  size: IdName | null;
-  unit: IdName | null;
+  product: IdName;
+  model: IdName;
+  product_type: IdName;
+  size: IdName;
+  unit: IdName;
   quantity: number;
-  order_type: IdName | null;
-  description?: string | null;
+  order_type: IdName;
+  description: string;
 }
 
 interface Executor {
   executor: IdName;
-  executor_type: IdName;
   status: IdName;
   message: string;
   confirmation_date: string;
-}
-
-interface Performers {
-  performer: IdName;
-  description:string;
-  row_number: number;
 }
 
 interface OrderDetail {
@@ -52,6 +45,7 @@ interface OrderDetail {
   exit_number: string;
   exit_date: string;
   type_document_for_filter: IdName;
+  sender_from_republic: IdName;
   application_status_district: IdName;
   confirmation_date: string;
   is_approved: boolean;
@@ -65,63 +59,34 @@ interface OrderDetail {
   sender_from_region: IdName;
   to_district: IdName;
   recipient_district: IdName;
-  recipient_republic: IdName;
   products: Product[];
   executors: Executor[];
-  performers:Performers[]
-  for_purpose: "signing" | "editing" | 'from_region' | 'for_agreement' | 'performer';
+  for_purpose: "signing" | "editing";
 }
 
 interface ProductRow {
   row_number: number;
-  order_type: IdName | null;
-  product_type: IdName | null;
-  product: string;
-  model: IdName | null;
-  size: IdName | null;
-  unit: IdName | null;
+  order_type: { id: string; name: string } | null;
+  product_type: { id: string; name: string } | null;
+  product: { id: string; name: string } | null;
+  model: { id: string; name: string } | null;
+  size: { id: string; name: string } | null;
+  unit: { id: string; name: string } | null;
   quantity: number;
-  description?: string | null;
+  description: string;
 }
 
 interface FileData {
-  file_name: string;
   raw_number: string;
-  date: string;
   user: string;
-}
-
-interface AboveFileData {
   file_name: string;
-  raw_number: string;
-  date: string;
-  user: string;
-}
-
-interface RequestsFileData {
-  file_name: string;
-  raw_number: string;
-  date: string;
-  user: string;
-}
-
-
-interface DocumentFormData {
-  selectedDocumentType: string;
-  filename: string;
   extension: string;
-  fileBinary: string;
+  date: string;
 }
 
-interface SenderToRepublic {
-  order_id: string;
-  receiver_republic: string;
-  receiver_republic_name: string;
-}
 
-const RegionOrderDetail: React.FC = () => {
+const ComplektasiyaOrderDetail: React.FC = () => {
   const [orderData, setOrderData] = useState<OrderDetail | null>(null);
-  const [SenderToRepublic, setSenderToRepublic] = useState<SenderToRepublic | null>(null);
   const [loading, setLoading] = useState(true);
   const [fileUploadModal, setFileUploadModal] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -130,65 +95,90 @@ const RegionOrderDetail: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
   const [remainders, setRemainders] = useState<ProductRemainder[]>([]);
   const [showRemainders, setShowRemainders] = useState(false);
-  const [documentFormData, setDocumentFormData] = useState<DocumentFormData>({
-    selectedDocumentType: '',
-    filename: '',
-    extension: '',
-    fileBinary: ''
-  });
+  const [documentFormData, setDocumentFormData] = useState<{
+    selectedDocumentType: string;
+    filename: string;
+    extension: string;
+    fileBinary: string;
+  }>();
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
-  const [showIjrochiModal, setShowIjrochiModal] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [sender_employees, setSenderEmployees] = useState<any[]>([]);
-  const { id } = useParams<{ id: string }>();
+  const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
+  const { id } = useParams();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalType, setModalType] = useState<"model" | "size" | "unit" | "product_type" | null>(null);
+  const [modalPage, setModalPage] = useState(1);
+  const [modalPageSize] = useState(15);
+  const [modalSelectedRow, setModalSelectedRow] = useState<number | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
-  type FieldName = "product_type" | "model" | "size" | "unit" | "product";
-  const [activeField, setActiveField] = useState<{ field: FieldName; row_number: number } | null>(null);
-  const [executorType, setexecutorType] = useState<any[]>([]);
-  const [messageFileURL, setMessageFileURL] = useState("");
-  const [fishkaFileURL, setFishkaFileURL] = useState("");
-  const [serviceFileURL, setServiceFileURL] = useState("");
-  const [showRecepModal, setshowRecepModal] = useState(false);
+
   const { currentUserInfo } = useAppSelector(state => state.info);
-  const { order_types } = useAppSelector(state => state.product);
-  const [above_files, setAboveFiles] = useState<AboveFileData[]>([]);
-  const [requests_files, setRequestsFiles] = useState<RequestsFileData[]>([]);
-  const [viewMode, setViewMode] = useState<'orders' | 'letters' | 'files'>('orders');
+  const { order_types, product_models, product_sizes, product_types, product_units } = useAppSelector(state => state.product)
 
+  console.log(orderData?.for_purpose)
 
+  // 🔹 Modal uchun ro'yxat
+  const getModalList = () => {
+    switch (modalType) {
+      case "model":
+        return product_models;
+      case "size":
+        return product_sizes;
+      case "unit":
+        return product_units;
+      case "product_type":
+        return product_types;
+      default:
+        return [];
+    }
+  };
 
-  const navigate = useNavigate();
+  // 🔹 Paginatsiyalangan ro'yxat
+  // const paginatedList = getModalList().slice(
+  //   (modalPage - 1) * modalPageSize,
+  //   modalPage * modalPageSize
+  // );
+
+  const openModal = (type: "model" | "size" | "unit" | "product_type", row_number: number) => {
+    setModalType(type);
+    setModalSelectedRow(row_number);
+    setModalVisible(true);
+    setModalPage(1);
+  };
+
+  // 🔹 Modalda element tanlanganda
+  const handleSelectModalItem = (item: IdName) => {
+    if (!modalSelectedRow || !modalType) return;
+
+    updateRow(modalSelectedRow, modalType, item);
+    setModalVisible(false);
+    setModalSelectedRow(null);
+    setModalType(null);
+  };
+
 
   const fetchOrderDetail = useCallback(async () => {
-    if (!id) return;
-    
     try {
-      setLoading(true);
       const response = await axiosAPI.get(`sale-orders/detail/${id}`);
-      console.log('API Response:', response.data);
-      console.log('Response length:', response.data.length);
-      console.log('First element:', response.data[0]);
-      setOrderData(response.data);
+      setOrderData(response.data[0])
     } catch (error) {
-      console.error('Error fetching order detail:', error);
-      message.error('Buyurtma ma\'lumotlarini olishda xatolik yuz berdi!');
+      console.log(error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }, [id]);
-  console.log(orderData)
-  const fetchDocumentTypesList = useCallback(async () => {
+
+  const fetchDocumentTypesList = async () => {
     try {
       const response = await axiosAPI.get('enumerations/document_types');
       setDocumentTypes(response.data);
     } catch (error) {
-      console.error('Error fetching document types:', error);
-      message.error('Hujjat turlarini olishda xatolik yuz berdi!');
+      console.log(error);
     }
-  }, []);
+  }
 
-  const fetchRemaindersUserWarehouse = useCallback(async () => {
+  const fetchRemaindersUserWarehouse = async () => {
     try {
       const response = await axiosAPI.get(`/warehouses/list?region=${currentUserInfo?.region.name}&district=${currentUserInfo?.district.name}`);
       if (response.status === 200) {
@@ -203,155 +193,76 @@ const RegionOrderDetail: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error fetching remainders:', error);
-      message.error('Qoldiqlarni olishda xatolik yuz berdi!');
+      console.log(error)
     }
-  }, [currentUserInfo?.region.name, currentUserInfo?.district.name]);
+  }
 
   useEffect(() => {
     if (file) {
-      setDocumentFormData(prev => ({
-        ...prev,
-        filename: file.name,
-        extension: file.name.split('.').pop() || ''
-      }));
-    }
-  }, [file]);
-
-
-  const handleFileAttach = useCallback(async () => {
-    if (!file || !orderData?.id || !documentFormData.filename) {
-      message.error('Fayl yoki ma\'lumotlar to\'liq emas!');
-      return;
+      setDocumentFormData(prev => ({ ...prev!, filename: file.name, extension: file.name.split('.').pop()! }))
+      console.log(documentFormData)
     }
 
+  }, [file, documentFormData?.filename, documentFormData?.extension]);
+
+  // Handle file attach
+  const handleFileAttach = async () => {
+    // Params
     const params = {
-      id: orderData.id,
-      file_name: documentFormData.filename,
-      extension: documentFormData.extension,
+      id: orderData?.id,
+      file_name: documentFormData?.filename,
+      extension: documentFormData?.extension,
       file_type: "ЗаявкаДокументПоРайон"
-    };
-
+    }
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const binary = new Uint8Array(arrayBuffer);
+      const arrayBuffer = await file?.arrayBuffer();
+      const binary = new Uint8Array(arrayBuffer!);
       const response = await axiosAPI.post(`sale-orders/files/create`, binary, {
         params,
         headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
-      });
-
+      })
       if (response.status === 200) {
-        await Promise.all([fetchOrderDetail(), fetchDocumentTypesList()]);
-        if (file) {
-          setDocumentFormData(prev => ({ ...prev!, filename: file.name, extension: file.name.split('.').pop()! }))
-          setFiles(prev => {
-            const exists = prev.some(f => (f.file_name || "").toLowerCase() === file.name.toLowerCase());
-            if (exists) {
-              toast("Bu fayl allaqachon biriktirilgan", { type: "warning" });
-              return prev;
-            }
-            return [...prev, {
-              raw_number: (prev.length + 1) + "",
-              user: currentUserInfo?.id || "",
-              file_name: file.name,
-              extension: file.name.split('.').pop()!,
-              date: new Date().toISOString()
-            }];
-          })
-        }
+        fetchOrderDetail();
+        fetchDocumentTypesList();
         setFile(null);
-        setDocumentFormData({
-          selectedDocumentType: '',
-          filename: '',
-          extension: '',
-          fileBinary: ''
+        setDocumentFormData({} as {
+          selectedDocumentType: string;
+          filename: string;
+          extension: string;
+          fileBinary: string;
         });
         toast("Fayl muvaffaqiyatli yuklandi", { type: "success" });
-        setFileUploadModal(false);
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
-      message.error('Fayl yuklashda xatolik yuz berdi!');
+      console.log(error)
     }
-  }, [file, orderData?.id, documentFormData, fetchOrderDetail, fetchDocumentTypesList]);
+  };
 
   useEffect(() => {
-    handleFileAttach()
-  },[])
+    fetchOrderDetail();
+    fetchDocumentTypesList();
+  }, [fetchOrderDetail]);
 
-  const fetchFiles = useCallback(async () => {
-    if (!id) return;
-    try {
-      const response = await axiosAPI.get(`sale-orders/${id}/files/list`);
-      if (response.status === 200) {
-        setFiles(response.data);
-      }
-    } catch (error) {
-      message.error('Fayllarni olishda xatolik yuz berdi!');
-    }
-  }, [id]);
-
-  const deleteFile = useCallback(async (file: FileData) => {
-    try {
-      setFiles(prev => prev.filter(f => f.raw_number !== file.raw_number));
-    } catch (error) {
-      console.error("Faylni o‘chirishda xato:", error);
-    }
-  }, []);
-
-  const getDistrictOrderFile = useCallback(async () => {
-    if (id) {
-
+  // 🟢 Fayllarni olish
+  useEffect(() => {
+    const fetchFiles = async () => {
       try {
-        if (orderData?.for_purpose === 'editing') {
-          const response = await axiosAPI.get(`sale-orders/${orderData?.id}/order-file`);
-          if (response.status === 200) {
-            setMessageFileURL(response.data.file_url)
-          }
-        }
-        if (orderData?.for_purpose === 'from_region') {
-          const above_response = await axiosAPI.get(`sale-orders/${orderData?.id}/above-file`);
-          const above_list_response = await axiosAPI.get(`sale-orders/${orderData?.id}/above-file/list`);
-          if (above_response.status === 200) {
-            setFishkaFileURL(above_response.data.file_url)
-          }
-          if (above_list_response.status === 200) {
-            setAboveFiles(above_list_response.data)
-          }
-        }
-        if (orderData?.for_purpose === 'performer') {
-          const se_response = await axiosAPI.get(`sale-orders/${orderData?.id}/request-file`);
-          const service_response = await axiosAPI.get(`sale-orders/${orderData?.id}/service-files/list`);
-          if (se_response.status === 200) {
-            setServiceFileURL(se_response.data.file_url)
-          }
-          if (service_response.status === 200) {
-            setRequestsFiles(service_response.data)
-          }
+        const response = await axiosAPI.get(`sale-orders/${id}/files/list`);
+        if (response.status === 200) {
+          setFiles(response.data);
         }
       } catch (error) {
-        console.log(error)
+        console.error("Fayllarni olishda xato:", error);
+      } finally {
+        setLoading(false);
       }
-    }
-  },  [id])
+    };
 
-  useEffect(() => {
-    getDistrictOrderFile();
-  }, [getDistrictOrderFile]);
+    if (id) fetchFiles();
+  }, [id]);
 
-  
-
-  useEffect(() => {
-    Promise.all([fetchOrderDetail(), fetchDocumentTypesList()]);
-  }, [fetchOrderDetail, fetchDocumentTypesList]);
-
-  useEffect(() => {
-    if (id) {
-      fetchFiles();
-    }
-  }, [fetchFiles]);
-
-  const formatDate = useCallback((iso: string): string => {
+  // 📅 Sana formatlash
+  const formatDate = (iso: string): string => {
     const date = new Date(iso);
     return date.toLocaleString("uz-UZ", {
       year: "numeric",
@@ -360,19 +271,22 @@ const RegionOrderDetail: React.FC = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
-  }, []);
+  };
 
-  const handleDownload = useCallback((file: FileData) => {
+  // 📥 Yuklab olish
+  const handleDownload = (file: FileData) => {
     const link = document.createElement("a");
     link.href = `https://ekomplektasiya.uz/ekomplektasiya_backend/hs/sale-orders/${id}/files/${file.file_name}`;
     link.download = file.file_name;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [id]);
+  };
 
-  const getFileIcon = useCallback((fileName: string) => {
-    const ext = fileName.split(".").pop()?.toLowerCase();
+  // 📁 Fayl turiga qarab icon va rang qaytaruvchi funksiya
+  const getFileIcon = (fileName: any) => {
+    const ext = fileName.split(".").pop().toLowerCase();
+
     switch (ext) {
       case "pdf":
         return { icon: <FilePdfOutlined />, color: "text-red-500", bg: "bg-red-50" };
@@ -389,19 +303,12 @@ const RegionOrderDetail: React.FC = () => {
       default:
         return { icon: <FileTextOutlined />, color: "text-gray-500", bg: "bg-gray-100" };
     }
-  }, []);
+  };
 
+  // 🔹 Hodimlar ro'yxatini olish
   const fetchEmployees = async () => {
     try {
       const response = await axiosAPI.get("employees/list");
-      const type_response = await axiosAPI.get('enumerations/excuter_types');
-
-      if (type_response.status === 200 && Array.isArray(type_response.data)) {
-        setexecutorType(type_response.data);
-      } else {
-        setexecutorType([]);
-      }
-
       if (response.status === 200 && Array.isArray(response.data.results)) {
         setEmployees(response.data.results);
       } else {
@@ -412,69 +319,42 @@ const RegionOrderDetail: React.FC = () => {
     }
   };
 
-  const fetchSenderEmployees = async () => {
-    try {
-      const response = await axiosAPI.get("employees/list?region=Худудгазтаъминот");
-      if (response.status === 200 && Array.isArray(response.data.results)) {
-        console.log('wqeqw')
-        console.log(response.data.results)
-
-        setSenderEmployees(response.data.results);
-      } else {
-        setSenderEmployees([]);
-      }
-    } catch (error) {
-      console.error("Hodimlarni olishda xatolik:", error);
+  const handleSelectEmployee = () => {
+    if (!selectedEmployee) {
+      message.warning("Iltimos, hodimni tanlang!");
+      return;
     }
-  };
-  const addSendToRepublic = async () => {
-    try {
-      if (!SenderToRepublic) return;
-      const response = await axiosAPI.post('/sale-orders/send-to-republic/', {
-        ...SenderToRepublic,
-        order_id: orderData?.id,
-      })
-      if (response.status === 200) {
-        toast.success("Buyurtma muvaffaqiyatli yangilandi!");
-      }
-    } catch (err: any) {
-      console.error("Yangilashda xatolik:", err);
-      toast.error(err.response?.data?.error || "Buyurtmani yangilashda xatolik yuz berdi!");
-    }
-  };
 
-  const handleSelectEmployee = useCallback(() => {
     setShowEmployeeModal(false);
-  }, []);
+    setSelectedEmployee(null);
+  };
 
-  const handleSelectIjrochi = useCallback(() => {
-    setShowIjrochiModal(false);
-  }, []);
 
-  const updateRow = useCallback(<K extends keyof ProductRow>(
+  const updateRow = <K extends keyof ProductRow>(
     row_number: number,
     key: K,
     value: ProductRow[K]
   ) => {
     setOrderData(prev => {
-      if (!prev) return prev;
+      if (!prev) return prev; // ✅ null holatini tekshirish
       const updatedProducts = prev.products.map(p =>
         p.row_number === row_number ? { ...p, [key]: value } : p
       );
       return { ...prev, products: updatedProducts };
     });
-  }, []);
+  };
 
-  const handleAddProduct = useCallback(() => {
+
+  const handleAddProduct = () => {
     setOrderData(prev => {
-      if (!prev) return prev;
+      if (!prev) return prev; // ✅ null holatini tekshirish
 
       const newRowNumber = (prev.products?.length || 0) + 1;
       const newProduct: ProductRow = {
         row_number: newRowNumber,
         order_type: null,
         product_type: null,
-        product: "",
+        product: { id: crypto.randomUUID(), name: "" },
         model: null,
         size: null,
         unit: null,
@@ -483,28 +363,33 @@ const RegionOrderDetail: React.FC = () => {
       };
       return { ...prev, products: [...(prev.products || []), newProduct] };
     });
-  }, []);
+  };
 
-  const handleDeleteOrder = useCallback(() => {
+
+
+  // 📌 O'chirish funksiyasi
+  const handleDeleteOrder = () => {
     if (!orderData || !orderData.id) {
       message.error("Buyurtma ID topilmadi!");
       return;
     }
     setDeleteModalError(null);
     setIsDeleteModalOpen(true);
-  }, [orderData]);
+  };
 
-  const confirmDelete = useCallback(async () => {
+  const confirmDelete = async () => {
     if (!orderData || !orderData.id) {
-      message.error("Buyurtma ma'lumoti topilmadi!");
+      message.error("Buyurtma ma’lumoti topilmadi!");
       return;
     }
 
     try {
-      const response = await axiosAPI.delete(`sale-orders/delete/${orderData.id}/`);
+      const response = await axiosAPI.delete(
+        `sale-orders/delete/${orderData.id}/`
+      );
 
       if (response.status === 200) {
-        message.success("Buyurtma muvaffaqiyatli o'chirildi!");
+        message.success("Buyurtma muvaffaqiyatli o‘chirildi!");
         setIsDeleteModalOpen(false);
 
         setTimeout(() => {
@@ -512,64 +397,31 @@ const RegionOrderDetail: React.FC = () => {
         }, 1000);
       }
     } catch (error: any) {
-      console.error("O'chirishda xatolik:", error);
-      const backendError = error?.response?.data?.error || "Buyurtmani o'chirishda xatolik yuz berdi!";
+      console.error("O‘chirishda xatolik:", error);
+
+      // Agar backend "error" maydoni yuborsa, o‘sha xabarni modalga chiqaramiz
+      const backendError =
+        error?.response?.data?.error ||
+        "Buyurtmani o‘chirishda xatolik yuz berdi!";
+
       setDeleteModalError(backendError);
     }
-  }, [orderData]);
+  };
 
-  const cancelDelete = useCallback(() => {
+  const cancelDelete = () => {
     setIsDeleteModalOpen(false);
     setDeleteModalError(null);
-  }, []);
+  };
 
-  const handleUpdateOrder = useCallback(async () => {
-    try {
-      if (!orderData) return;
-      const res = await axiosAPI.post(`/sale-orders/update/${orderData.id}`, {
-        ...orderData,
-        type_document_for_filter: orderData.type_document_for_filter?.id,
-        application_status_district: orderData.application_status_district?.id,
-        from_district: orderData.from_district?.id,
-        sender_from_district: orderData.sender_from_district?.id,
-        to_region: orderData.to_region?.id,
-        recipient_district: orderData.recipient_district?.id,
-        from_region: orderData.from_region?.id,
-        sender_from_region: orderData.sender_from_region?.id,
-        to_district: orderData.to_district?.id,
-        recipient_region: orderData.recipient_region?.id,
-        products: orderData.products.map(p => ({
-          ...p,
-          product: p.product || "",
-          model: p.model?.id,
-          size: p.size?.id,
-          unit: p.unit?.id,
-          quantity: p.quantity,
-          description: p.description,
-          order_type: p.order_type?.id,
-          product_type: p.product_type?.id,
-          row_number: p.row_number,
-        })),
-        executors: orderData.executors.map(e => ({
-          ...e,
-          executor: e.executor.id,
-          executor_type: e.executor_type?.id || e.executor_type,
-        })),
-        performers: orderData.performers.map(e => ({
-          ...e,
-          performer: e.performer.id,
-          row_number: e.row_number,
-        })),
-      });
-      if (res.status === 200) {
-        toast.success("Buyurtma muvaffaqiyatli yangilandi!");
-        fetchOrderDetail();
-      }
-    } catch (err: any) {
-      console.error("Yangilashda xatolik:", err);
-      toast.error(err.response?.data?.error || "Buyurtmani yangilashda xatolik yuz berdi!");
-    }
-  }, [orderData, fetchOrderDetail]);
+
+  // 🟣 Yuklanayotgan holat    
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-b-4 border-purple-600"></div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -586,916 +438,516 @@ const RegionOrderDetail: React.FC = () => {
       </div>
     );
   }
-  
+
+  // const handleUpdateOrder = async () => {
+  //   try {
+  //     if (!orderData) return;
+  //     const res = await axiosAPI.put(`/district-orders/update/${orderData.id}`, orderData);
+  //     if (res.status === 200) {
+  //       message.success("Buyurtma muvaffaqiyatli yangilandi!");
+  //       fetchOrderDetail();
+  //     }
+  //   } catch (err) {
+  //     console.error("Yangilashda xatolik:", err);
+  //     message.error("Xatolik yuz berdi!");
+  //   }
+  // };
+
+
+
   return (
     <>
-      {
-        (orderData.for_purpose === "editing" || orderData.for_purpose === "from_region" || orderData.for_purpose === "performer") ? (
-          <div className="min-h-screen py-2 px-2 bg-white">
-            <div className="max-w-8xl mx-auto bg-white">
-              <div>
 
-                <div className="bg-white overflow-hidden mb-4">
-                  <div className="flex items-center justify-between p-4">
-                    <Button
-                      variant="text"
-                      size="small"
-                      onClick={() => navigate(-1)}
-                      className="w-8 h-8 p-0 hover:bg-slate-100 transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </Button>
-                    <div className="text-center border-gray-200">
-                      <p className="text-xs text-gray-500 uppercase font-semibold mb-2">{orderData.for_purpose === "editing" ? "Chiqish" : 'Kirish'}</p>
-                      <p className="text-md font-semibold text-gray-800">{orderData.exit_number}</p>
-                    </div>
+      <div className="min-h-screen py-2 px-2 bg-white">
+        <div className="max-w-8xl mx-auto bg-white">
 
-                    <div className="text-center border-gray-200">
-                      <p className="text-xs text-gray-500 uppercase font-semibold mb-2">{orderData.for_purpose === "editing" ? "Chiqish" : 'Kirish'} Sana</p>
-                      <p className="text-md font-semibold text-gray-800">{orderData.exit_date?.split("T").join(" ")}</p>
-                    </div>
-
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 uppercase font-semibold mb-2">{orderData.for_purpose === "editing" ? "Viloyatdan" : 'Tumandan'} junatuvchi</p>
-                      <p className="text-md font-semibold text-gray-800">{orderData.for_purpose === "editing" ? orderData.sender_from_region?.name : orderData.sender_from_district?.name} </p>
-                    </div>
-
-                    <div className="text-center border-gray-200">
-                      <p className="text-xs text-gray-500 uppercase font-semibold mb-2">{orderData.for_purpose === "from_region" ? "Viloyatda" : 'Respublikada'} qabul qiluvchi</p>
-                      <p className="text-md font-semibold text-gray-800">{SenderToRepublic?.receiver_republic_name ? SenderToRepublic.receiver_republic_name : orderData.recipient_republic?.name}</p>
-                    </div>
-                  </div>
+          {/* 🔸 1. BUYURTMALAR OYNASI */}
+          <div>
+            {/* Header */}
+            <div className="bg-white overflow-hidden mb-4">
+              <div className="flex items-center justify-between p-4">
+                <div className="text-center border-gray-200">
+                  <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Kirish</p>
+                  <p className="text-md font-semibold text-gray-800">{orderData.exit_number}</p>
                 </div>
 
-                <div>
-                  <div className="bg-transparent rounded-md flex justify-between mb-4">
-                    <div>
-                      <h1 className='text-xl text-[#000] font-semibold'>Buyurtma uchun berilgan tovarlar ruyxati</h1>
-                    </div>
-                    <div className='flex items-center gap-3'>
-                      <button
-                        onClick={handleAddProduct}
-                        className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-                      >
-                        <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
-                          <Plus className='w-3.5 h-3.5' />
-                        </div>
-                        Kiritish
-                      </button>
-                      <button
-                        className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-                        onClick={fetchRemaindersUserWarehouse}>
-                        <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
-                          <Layers className='w-3.5 h-3.5' />
-                        </div>
-                        Qoldiqlar
-                      </button>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                        <Input
-                          type="text"
-                          placeholder="Qidirish (Ctrl+F)"
-                          className="w-64 h-9 pl-9 text-sm border-slate-200 bg-white"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-xl border border-gray-200 overflow-y-auto mb-4">
-                    <div className="overflow-x-auto">
-                      <table className="w-full caption-bottom text-sm">
-                        <thead className="[&_tr]:border-b bg-gradient-to-r from-slate-100 via-blue-50 to-purple-50">
-                          <tr className=" data-[state=selected]:bg-muted border-b transition-colors">
-                            <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">№</th>
-                            <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Buyurtma turi</th>
-                            <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Tovar</th>
-                            <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Tovar turi</th>
-                            <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Model</th>
-                            <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">O'lcham</th>
-                            <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">O'lchov birligi</th>
-                            <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Soni</th>
-                            <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Izoh</th>
-                          </tr>
-                        </thead>
-
-                        <tbody className="divide-y divide-gray-100">
-                          {orderData?.products && orderData.products.length > 0 ? (
-                            orderData.products.map((p, idx) => (
-                              <tr key={idx} className="hover:bg-gray-50 transition-all duration-200">
-                                {/* № */}
-                                <td className="px-3 py-2 text-center">
-                                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold text-sm">
-                                    {p.row_number}
-                                  </span>
-                                </td>
-
-                                {/* 🟢 Buyurtma turi (API dan kelgan SELECT) */}
-                                <td className="px-3 py-2 text-center">
-                                  <Select
-                                    value={p.order_type?.id}
-                                    onChange={(val) => {
-                                      const found = order_types.find(o => o.id === val);
-                                      if (found) updateRow(p.row_number, "order_type", found);
-                                    }}
-                                    style={{ width: 160 }}
-                                    options={order_types.map(o => ({ value: o.id, label: o.name }))}
-                                    placeholder="Tanlang"
-                                  />
-                                </td>
-
-                                {/* 🟠 Mahsulot nomi (qo'lda Input) */}
-                                <td className="px-3 py-2 text-center">
-                                  <Input
-                                    value={p.product}
-                                    placeholder='Tovar nomini kiriting'
-                                    onChange={(e) => updateRow(p.row_number, "product", e.target.value)}
-                                    className="text-sm border border-gray-200 rounded-md w-full bg-white placeholder:text-gray-400"
-                                  />
-                                </td>
-
-                                {/* Tovar turi */}
-                                <td className="px-3 py-2 text-center">
-                                  <Button
-                                    onClick={() => setActiveField({ field: "product_type", row_number: p.row_number })}
-                                    size="small"
-                                    className="text-blue-600 border-blue-400"
-                                  >
-                                    {p.product_type?.name || "Tovar turini tanlash"}
-                                  </Button>
-                                  {activeField?.field === "product_type" && activeField?.row_number === p.row_number && (
-                                    <FieldModal
-                                      field_name={activeField.field}
-                                      selectedItem={{
-                                        id: p.product_type?.id || '',
-                                        name: p.product_type?.name || '',
-                                        name_uz: p.product_type?.name || ''
-                                      }}
-                                      setSelectedItem={newItem => {
-                                        if (!newItem) {
-                                          setActiveField(null);
-                                          return;
-                                        }
-                                        setOrderData(prev => ({
-                                          ...prev!,
-                                          products: prev!.products.map(prod =>
-                                            prod.row_number === p.row_number
-                                              ? {
-                                                ...prod,
-                                                product_type: { id: newItem.id, name: newItem.name },
-                                                model: { id: '', name: '' },
-                                                size: { id: '', name: '' },
-                                                unit: { id: '', name: '' },
-                                              }
-                                              : prod
-                                          ),
-                                        }));
-                                        setActiveField(null);
-                                      }}
-                                    />
-                                  )}
-                                </td>
-
-                                {/* Model */}
-                                <td className="px-3 py-2 text-center">
-                                  <Button
-                                    onClick={() => setActiveField({ field: "model", row_number: p.row_number })}
-                                    size="small"
-                                    className="text-blue-600 border-blue-400"
-                                  >
-                                    {p.model?.name || "Modelni tanlash"}
-                                  </Button>
-                                  {activeField?.field === "model" && activeField?.row_number === p.row_number && (
-                                    <FieldModal
-                                      field_name={activeField.field}
-                                      selectedItem={{
-                                        id: p.model?.id || '',
-                                        name: p.model?.name || '',
-                                        name_uz: p.model?.name || ''
-                                      }}
-                                      selectedProductTypeId={p.product_type?.name || ''}
-                                      setSelectedItem={newItem => {
-                                        if (!newItem) {
-                                          setActiveField(null);
-                                          return;
-                                        }
-                                        setOrderData(prev => ({
-                                          ...prev!,
-                                          products: prev!.products.map(prod =>
-                                            prod.row_number === p.row_number
-                                              ? {
-                                                ...prod,
-                                                model: { id: newItem.id, name: newItem.name },
-                                                size: { id: '', name: '' },
-                                                unit: { id: '', name: '' },
-                                              }
-                                              : prod
-                                          ),
-                                        }));
-                                        setActiveField(null);
-                                      }}
-                                    />
-                                  )}
-                                </td>
-
-                                {/* O'lcham */}
-                                <td className="px-3 py-2 text-center">
-                                  <Button
-                                    onClick={() => setActiveField({ field: "size", row_number: p.row_number })}
-                                    size="small"
-                                    className="text-blue-600 border-blue-400"
-                                  >
-                                    {p.size?.name || "O'lchamni tanlash"}
-                                  </Button>
-                                  {activeField?.field === "size" && activeField?.row_number === p.row_number && (
-                                    <FieldModal
-                                      field_name={activeField.field}
-                                      selectedItem={{
-                                        id: p.size?.id || '',
-                                        name: p.size?.name || '',
-                                        name_uz: p.size?.name || ''
-                                      }}
-                                      selectedProductTypeId={p.product_type?.name || ''}
-                                      selectedModelId={p.model?.name || ''}
-                                      setSelectedItem={newItem => {
-                                        if (!newItem) {
-                                          setActiveField(null);
-                                          return;
-                                        }
-                                        setOrderData(prev => ({
-                                          ...prev!,
-                                          products: prev!.products.map(prod =>
-                                            prod.row_number === p.row_number
-                                              ? {
-                                                ...prod,
-                                                size: { id: newItem.id, name: newItem.name },
-                                                unit: { id: '', name: '' },
-                                              }
-                                              : prod
-                                          ),
-                                        }));
-                                        setActiveField(null);
-                                      }}
-                                    />
-                                  )}
-                                </td>
-
-                                {/* Birlik */}
-                                <td className="px-3 py-2 text-center">
-                                  <Button
-                                    onClick={() => setActiveField({ field: "unit", row_number: p.row_number })}
-                                    size="small"
-                                    className="text-blue-600 border-blue-400"
-                                  >
-                                    {p.unit?.name || "Birlikni tanlash"}
-                                  </Button>
-                                  {activeField?.field === "unit" && activeField?.row_number === p.row_number && (
-                                    <FieldModal
-                                      field_name={activeField.field}
-                                      selectedItem={{
-                                        id: p.unit?.id || '',
-                                        name: p.unit?.name || '',
-                                        name_uz: p.unit?.name || ''
-                                      }}
-                                      setSelectedItem={newItem => {
-                                        if (!newItem) {
-                                          setActiveField(null);
-                                          return;
-                                        }
-                                        setOrderData(prev => ({
-                                          ...prev!,
-                                          products: prev!.products.map(prod =>
-                                            prod.row_number === p.row_number
-                                              ? { ...prod, unit: { id: newItem.id, name: newItem.name } }
-                                              : prod
-                                          ),
-                                        }));
-                                        setActiveField(null);
-                                      }}
-                                    />
-                                  )}
-                                </td>
-
-                                {/* 🔢 Soni */}
-                                <td className="px-3 py-2 text-center">
-                                  <Input
-                                    type="number"
-                                    value={p.quantity}
-                                    onChange={(e) => updateRow(p.row_number, "quantity", Number(e.target.value))}
-                                    className="text-sm border border-gray-200 rounded-md w-full bg-white placeholder:text-gray-400"
-                                  />
-                                </td>
-
-                                {/* 📝 Izoh */}
-                                <td className="px-3 py-2 text-center">
-                                  <Input
-                                    placeholder="Izoh"
-                                    value={p.description || ""}
-                                    onChange={(e) => updateRow(p.row_number, "description", e.target.value)}
-                                    className="text-sm border border-gray-200 rounded-md w-full bg-white placeholder:text-gray-400"
-                                  />
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan={9} className="py-6 text-center text-gray-500 text-md font-semibold">
-                                Tovar qo'shilmagan
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-
-
-                      </table>
-                    </div>
-                  </div>
+                <div className="text-center border-gray-200">
+                  <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Kirish Sana</p>
+                  <p className="text-md font-semibold text-gray-800">{orderData.exit_date?.split("T").join(" ")}</p>
                 </div>
-                  {orderData?.for_purpose === 'from_region' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                        
-                          <div className="flex border shadow-md px-6 py-4 rounded-lg bg-white h-fit">
-                              <div className="flex items-center gap-4 mb-3 w-full">
-                                <div className="text-5xl p-6 flex items-center justify-center rounded-full text-blue-500 bg-blue-50">
-                                  <FileWordOutlined />
-                                </div>
-                                <div className="flex flex-col">
-                                  <h4 className="text-gray-800 font-semibold text-xl truncate w-40">Usti hat</h4>
-                                  <p className="text-lg">{currentUserInfo?.name}</p>
-                                  <p className="text-gray-500 mt-1">{currentUserInfo?.type_user}</p>
-                                </div>
-                              </div>
 
-                              <div className="flex flex-col gap-2 min-w-[150px]">
-                                <button
-                                  onClick={() => {
-                                    const openWordURL = `ms-word:ofe|u|${fishkaFileURL}`;
-                                    const link = document.createElement("a");
-                                    link.href = openWordURL;
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                  }}
-                                  className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition flex items-center justify-between gap-4 bg-gray-100 px-2 cursor-pointer"
-                                >
-                                  <span>Ko'rish</span>
-                                  <EyeOutlined className="text-[24px]" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const openWordURL = `ms-word:ofe|u|${fishkaFileURL}`;
-                                    const link = document.createElement("a");
-                                    link.href = openWordURL;
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                  }}
-                                  className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition flex items-center justify-between gap-4 bg-gray-100 px-2 cursor-pointer"
-                                >
-                                  <span>O'zgartirish</span>
-                                  <Pencil className="text-[24px]" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const link = document.createElement('a');
-                                    link.href = fishkaFileURL;
-                                    link.setAttribute('download', 'file.docm');
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                  }}
-                                  className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition flex items-center justify-between gap-4 bg-gray-100 px-2 cursor-pointer"
-                                >
-                                  <span>Yuklab olish</span>
-                                  <DownloadOutlined className="text-[24px]" />
-                                </button>
-                              </div>
-                          </div>
-                        
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                              {above_files.length !== 0 ? (
-                                above_files.map((file, index) => {
-                                  const { icon, color, bg } = getFileIcon(file.file_name);
-                                  return (
-                                    <div
-                                      key={index}
-                                      className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 p-3 flex flex-col justify-between"
-                                    >
-                                      <div className="flex justify-between">
-                                        <div className="flex items-center justify-between flex-1 px-2 py-7 h-full">
-                                          <div className={`p-3 rounded-lg ${bg} flex items-center justify-center`}>
-                                            <div className={`${color} text-3xl`}>{icon}</div>
-                                          </div>
-                                          <div className="flex flex-col justify-center">
-                                            <h4 className="text-gray-800 font-semibold text-sm truncate w-40">
-                                              {file.file_name}
-                                            </h4>
-                                            <p className="text-gray-700 text-[12px]">{file.user}</p>
-                                            <p className="text-gray-500 text-[12px] mt-1">{formatDate(file.date)}</p>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
+                <div className="text-center border-gray-200">
+                  <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Respublikadan junatuvchi</p>
+                  <p className="text-md font-semibold text-gray-800">{orderData.sender_from_republic?.name}</p>
+                </div>
+
+              </div>
+            </div>
+
+            <div>
+              <div className="bg-transparent rounded-md flex justify-between mb-4">
+                <div className='flex items-center gap-3'>
+                  <Button
+                    // onClick={handleAddProduct}
+                    className='cursor-pointer'>
+                    <Plus></Plus>
+                    Kiritish
+                  </Button>
+                  <Button className='cursor-pointer' onClick={() => fetchRemaindersUserWarehouse()}>
+                    Qoldiqlar
+                  </Button>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Qidirish (Ctrl+F)"
+                    className="w-64 h-9 pl-9 text-sm border-slate-200 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 overflow-y-auto mb-4">
+                <div className="overflow-x-auto">
+                  <table className="w-full caption-bottom text-sm">
+                    <thead className="[&_tr]:border-b bg-gradient-to-r from-slate-100 via-blue-50 to-purple-50">
+                      <tr className=" data-[state=selected]:bg-muted border-b transition-colors">
+                        <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">№</th>
+                        <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Buyurtma turi</th>
+                        <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Tovar</th>
+                        <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Tovar turi</th>
+                        <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Model</th>
+                        <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">O‘lcham</th>
+                        <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">O'lchov birligi</th>
+                        <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Soni</th>
+                        <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">Izoh</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100">
+                      {orderData?.products?.map((p, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition-all duration-200">
+                          {/* № */}
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold text-sm">
+                              {p.row_number}
+                            </span>
+                          </td>
+
+                          {/* 🟢 Buyurtma turi (API dan kelgan SELECT) */}
+                          <td className="px-3 py-2 text-center">
+                            <Select
+                              value={p.order_type?.id}
+                              onChange={(val) => {
+                                const found = order_types.find(o => o.id === val);
+                                if (found) updateRow(p.row_number, "order_type", found);
+                              }}
+                              style={{ width: 160 }}
+                              options={order_types.map(o => ({ value: o.id, label: o.name }))}
+                              placeholder="Tanlang"
+                            />
+                          </td>
+                          {/* <td className="px-3 py-2 text-center">
+																	<Button
+																		size="small"
+																		onClick={() => setModalData({ type: "order_type", row: p.row_number })}
+																	>
+																		{p.order_type?.name || "Tanlang"}
+																	</Button>
+																</td> */}
+
+                          {/* 🟠 Mahsulot nomi (qo‘lda Input) */}
+                          <td className="px-3 py-2 text-center">
+                            <Input
+                              value={p.product?.name || ""}
+                              onChange={(e) =>
+                                updateRow(p.row_number, "product", {
+                                  id: p.product?.id || crypto.randomUUID(),
+                                  name: e.target.value,
                                 })
-                              ) : (
-                                <p className="text-gray-500 font-semibold text-md text-center col-span-full">
-                                  Hozircha fayllar mavjud emas.
-                                </p>
-                              )}
-                          </div>
-                      
-                    </div>
-                  )}
+                              }
+                              className="text-sm"
+                            />
+                          </td>
 
-                 {orderData?.for_purpose === 'editing' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                      <div className="flex border shadow-md px-6 py-4 rounded-lg bg-white h-fit">
-                        <div className="flex items-center gap-4 mb-3 w-full">
-                          <div className="text-5xl p-6 flex items-center justify-center rounded-full text-blue-500 bg-blue-50">
-                            <FileWordOutlined />
-                          </div>
-                          <div className="flex flex-col">
-                            <h4 className="text-gray-800 font-semibold text-xl truncate w-40">Hujat</h4>
-                            <p className="text-lg">{currentUserInfo?.name}</p>
-                            <p className="text-gray-500 mt-1">{currentUserInfo?.type_user}</p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-2 min-w-[150px]">
-                          <button
-                            onClick={() => {
-                              const openWordURL = `ms-word:ofe|u|${messageFileURL}`;
-                              const link = document.createElement("a");
-                              link.href = openWordURL;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }}
-                            className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition flex items-center justify-between gap-4 bg-gray-100 px-2 cursor-pointer"
-                          >
-                            <span>Ko'rish</span>
-                            <EyeOutlined className="text-[24px]" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const openWordURL = `ms-word:ofe|u|${messageFileURL}`;
-                              const link = document.createElement("a");
-                              link.href = openWordURL;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }}
-                            className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition flex items-center justify-between gap-4 bg-gray-100 px-2 cursor-pointer"
-                          >
-                            <span>O'zgartirish</span>
-                            <Pencil className="text-[24px]" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = messageFileURL;
-                              link.setAttribute('download', 'file.docm');
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }}
-                            className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition flex items-center justify-between gap-4 bg-gray-100 px-2 cursor-pointer"
-                          >
-                            <span>Yuklab olish</span>
-                            <DownloadOutlined className="text-[24px]" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                
-                
-                {orderData?.for_purpose === 'performer' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                    <div className="flex border shadow-md px-6 py-4 rounded-lg bg-white h-fit">
-                        <div className="flex items-center gap-4 mb-3 w-full">
-                          <div className="text-5xl p-6 flex items-center justify-center rounded-full text-blue-500 bg-blue-50">
-                            <FileWordOutlined />
-                          </div>
-                          <div className="flex flex-col">
-                            <h4 className="text-gray-800 font-semibold text-xl truncate w-40">Xizmat hati</h4>
-                            <p className="text-lg">{currentUserInfo?.name}</p>
-                            <p className="text-gray-500 mt-1">{currentUserInfo?.type_user}</p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-2 min-w-[150px]">
-                          <button
-                            onClick={() => {
-                              const openWordURL = `ms-word:ofe|u|${serviceFileURL}`;
-                              const link = document.createElement("a");
-                              link.href = openWordURL;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }}
-                            className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition flex items-center justify-between gap-4 bg-gray-100 px-2 cursor-pointer"
-                          >
-                            <span>Ko'rish</span>
-                            <EyeOutlined className="text-[24px]" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const openWordURL = `ms-word:ofe|u|${serviceFileURL}`;
-                              const link = document.createElement("a");
-                              link.href = openWordURL;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }}
-                            className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition flex items-center justify-between gap-4 bg-gray-100 px-2 cursor-pointer"
-                          >
-                            <span>O'zgartirish</span>
-                            <Pencil className="text-[24px]" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = serviceFileURL;
-                              link.setAttribute('download', 'file.docm');
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }}
-                            className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition flex items-center justify-between gap-4 bg-gray-100 px-2 cursor-pointer"
-                          >
-                            <span>Yuklab olish</span>
-                            <DownloadOutlined className="text-[24px]" />
-                          </button>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                      {requests_files.length !== 0 ? (
-                        requests_files.map((file, index) => {
-                          const { icon, color, bg } = getFileIcon(file.file_name);
-                          return (
-                            <div
-                              key={index}
-                              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 p-3 flex flex-col justify-between"
+                          {/* <td className="px-3 py-2 text-center">
+																	<Select
+																		value={p.product_type?.name}
+																		onChange={(val) => {
+																			const found = product_types.find(pt => pt.id === val);
+																			if (found) updateRow(p.row_number, "product_type", found);
+																		}}
+																		style={{ width: 160 }}
+																		options={product_types.map(pt => ({ value: pt.id, label: pt.name }))}
+																		placeholder="Tanlang"
+																	/>
+																</td> */}
+
+                          <td className="px-3 py-2 text-center">
+                            <Button
+                              onClick={() => openModal("product_type", p.row_number)}
+                              size="small"
+                              className="text-blue-600 border-blue-400"
                             >
-                              <div className="flex justify-between">
-                                <div className="flex items-center justify-between flex-1 px-2 py-7 h-full">
-                                  <div className={`p-3 rounded-lg ${bg} flex items-center justify-center`}>
-                                    <div className={`${color} text-3xl`}>{icon}</div>
-                                  </div>
-                                  <div className="flex flex-col justify-center">
-                                    <h4 className="text-gray-800 font-semibold text-sm truncate w-40">
-                                      {file.file_name}
-                                    </h4>
-                                    <p className="text-gray-700 text-[12px]">{file.user}</p>
-                                    <p className="text-gray-500 text-[12px] mt-1">{formatDate(file.date)}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p className="text-gray-500 font-semibold text-md text-center col-span-full">
-                          
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+                              {p.product_type?.name || "Tovar turini tanlash"}
+                            </Button>
+                          </td>
 
-               
-                <hr/>
-                <>
-                { orderData.for_purpose === "from_region" &&
-                <>
-                <div>
-                   {/* IJROCHILAR START */}
-                    <div className="bg-transparent rounded-md p-2 flex justify-between mb-2">
-                      <div>
-                        <h1 className='text-xl text-[#000] font-semibold'>Ijrochilar</h1>
-                      </div>
-                      <div className='flex items-center gap-3'>
-                        <button className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-                          onClick={() => { fetchSenderEmployees(), setShowIjrochiModal(true); }}
-                        >
-                          <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
-                            <Plus className='w-3.5 h-3.5' />
-                          </div>
-                          Ijrochilar Kiritish
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4">
-                      {orderData.performers && orderData.performers.length > 0 ? (
-                        orderData.performers.map((performer, index) => (
-                          <div
-                            key={index}
-                            className="bg-white w-[300px] h-[160px] rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden"
-                          >
-                            <div className="p-5">
-                              {/* Row number qo'shildi */}
-                              <div className="flex items-center justify-between mb-4">
-                                <span className="text-sm font-semibold text-gray-500">№ {performer.row_number}</span>
-                              </div>
-                              
-                              <div className="mb-4">
-                                <p className="text-sm text-gray-500 mb-1">Ijrochi xodim</p>
-                                <p className="text-sm font-semibold text-gray-900">{performer?.performer?.name}</p>
-                              </div>
+                          {/* 🔵 Model (useAppSelector dan Select) */}
+                          {/* <td className="px-3 py-2 text-center">
+																	<Select
+																		value={p.model?.name}
+																		onChange={(val) => {
+																			const found = product_models.find(m => m.id === val);
+																			if (found) updateRow(p.row_number, "model", found);
+																		}}
+																		style={{ width: 150 }}
+																		options={product_models.map(m => ({ value: m.id, label: m.name }))}
+																		placeholder="Model"
+																	/>
+																</td> */}
 
-                              <div className="mb-4">
-                                <p className="text-xs text-gray-500 mb-1">Izoh</p>
-                                <p className="text-sm text-gray-700">{performer.description}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="w-full flex flex-col items-center justify-center py-10 rounded-lg border-gray-200">
-                          <p className="text-gray-500 text-sm font-medium">Ijrochilar mavjud emas</p>
+                          <td className="px-3 py-2 text-center">
+                            <Button
+                              onClick={() => openModal("model", p.row_number)}
+                              size="small"
+                              className="text-blue-600 border-blue-400"
+                            >
+                              {p.model?.name || "Modelni tanlash"}
+                            </Button>
+                          </td>
+
+                          {/* 🟣 O‘lcham */}
+                          {/* <td className="px-3 py-2 text-center">
+																	<Select
+																		value={p.size?.name}
+																		onChange={(val) => {
+																			const found = product_sizes.find(s => s.id === val);
+																			if (found) updateRow(p.row_number, "size", found);
+																		}}
+																		style={{ width: 120 }}
+																		options={product_sizes.map(s => ({ value: s.id, label: s.name }))}
+																		placeholder="O‘lcham"
+																	/>
+																</td> */}
+
+                          <td className="px-3 py-2 text-center">
+                            <Button
+                              onClick={() => openModal("size", p.row_number)}
+                              size="small"
+                              className="text-blue-600 border-blue-400"
+                            >
+                              {p.size?.name || "O‘lchamni tanlash"}
+                            </Button>
+                          </td>
+
+                          {/* ⚪ Birlik */}
+                          {/* <td className="px-3 py-2 text-center">
+																	<Select
+																		value={p.unit?.id}
+																		onChange={(val) => {
+																			const found = product_units.find(u => u.id === val);
+																			if (found) updateRow(p.row_number, "unit", found);
+																		}}
+																		style={{ width: 100 }}
+																		options={product_units.map(u => ({ value: u.id, label: u.name }))}
+																		placeholder="Birlik"
+																	/>
+																</td> */}
+                          <td className="px-3 py-2 text-center">
+                            <Button
+                              onClick={() => openModal("unit", p.row_number)}
+                              size="small"
+                              className="text-blue-600 border-blue-400"
+                            >
+                              {p.unit?.name || "Birlikni tanlash"}
+                            </Button>
+                          </td>
+
+                          {/* 🔢 Soni (Input number) */}
+                          <td className="px-3 py-2 text-center">
+                            <Input
+                              type="number"
+                              value={p.quantity}
+                              onChange={(e) =>
+                                updateRow(p.row_number, "quantity", Number(e.target.value))
+                              }
+                              className="text-sm text-center w-24"
+                            />
+                          </td>
+
+                          {/* 📝 Izoh (Input text) */}
+                          <td className="px-3 py-2 text-center">
+                            <Input
+                              placeholder="Izoh"
+                              value={p.description || ""}
+                              onChange={(e) =>
+                                updateRow(p.row_number, "description", e.target.value)
+                              }
+                              className="text-sm"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+
+            </div>
+
+
+            <div>
+              <div className="bg-transparent rounded-md p-2 flex justify-between mb-2">
+                <div className='flex items-center gap-3'>
+                  <Button className='cursor-pointer'
+                    onClick={() => { fetchEmployees(); setShowEmployeeModal(true); }}
+                  >
+                    <Plus />
+                    Kiritish
+                  </Button>
+                  <Button className='cursor-pointer'>
+                    Yuborish
+                  </Button>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Qidirish (Ctrl+F)"
+                    className="w-64 h-9 pl-9 text-sm border-slate-200 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {orderData.executors?.map((executor, index) => (
+                  <div
+                    key={index}
+                    className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden"
+                  >
+                    <div className="p-5">
+                      {/* Header with number and status */}
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-xm font-semibold text-gray-500">№ {index + 1}</span>
+                        <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-full">
+                          {executor.status?.name}
+                        </span>
+                      </div>
+
+                      {/* Employee info */}
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-500 mb-1">Imzolovchi xodim</p>
+                        {/* <p className="text-sm font-semibold text-gray-900">{executor.executor?.name}</p> */}
+                      </div>
+
+                      {/* Message */}
+                      {executor.message && (
+                        <div className="mb-4">
+                          <p className="text-xs text-gray-500 mb-1">Imzolash xolati</p>
+                          {/* <p className="text-sm text-gray-700">{executor.message}</p> */}
                         </div>
                       )}
-                    </div>
-                  {/* IJROCHILAR END */}
-                </div>
-                <hr/>
-                </>
-                }
-                <div>
-                 
 
-                  <div className="bg-transparent rounded-md p-2 flex justify-between mb-2">
-                    <div>
-                      <h1 className='text-xl text-[#000] font-semibold'>Imzolovchilar</h1>
+                      {/* Date */}
+                      <div className="pt-3 border-t border-gray-100">
+                        <p className="text-xs text-gray-500">Sana</p>
+                        {/* <p className="text-sm text-gray-900 font-medium">{executor.confirmation_date}</p> */}
+                      </div>
                     </div>
-                    <div className='flex items-center gap-3'>
-                      <button className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-                        onClick={() => { fetchEmployees(), setShowEmployeeModal(true); }}
+                  </div>
+                ))}
+              </div>
+
+            </div>
+
+            {/* Attach document */}
+            <div className='flex items-center justify-center gap-6 p-6'>
+              {/* File Upload Button */}
+              <button
+                onClick={() => setFileUploadModal(true)}
+                className='group relative bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-medium cursor-pointer'
+              >
+                <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
+                  <FilePlus2 className='w-3.5 h-3.5' />
+                </div>
+                <span>Hujjat biriktirish</span>
+              </button>
+            </div>
+
+            {fileUploadModal && (
+              <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-50" onClick={() => setFileUploadModal(false)}>
+                <div className="bg-white rounded-lg p-6 w-96 flex flex-col" onClick={(e) => e.stopPropagation()}>
+                  {/* Top */}
+                  <div className='flex items-center justify-between mb-4 pb-2 border-b'>
+                    <h2 className="text-xl font-semibold">Hujjat biriktirish</h2>
+                    <button className='text-2xl' onClick={() => setFileUploadModal(false)}>&times;</button>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hujjat turi</label>
+                    <Select
+                      style={{ width: '100%' }}
+                      placeholder="Hujjat turini tanlang"
+                      onChange={(value) => {
+                        console.log(value)
+                        setDocumentFormData(prev => ({ ...prev!, selectedDocumentType: value }))
+                      }}
+                      options={documentTypes.map(docType => ({ value: docType.id, label: docType.name }))}
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <FileDropZone file={file} setFile={setFile} />
+                  </div>
+
+                  <Button
+                    className="bg-gray-100 p-2 rounded-lg text-sm cursor-pointer hover:bg-blue-400 hover:text-white ml-auto"
+                    onClick={() => {
+                      setFileUploadModal(false);
+                      handleFileAttach()
+                    }}
+                    disabled={!file && !documentFormData?.selectedDocumentType}>
+                    Yuklash
+                  </Button>
+                </div>
+              </div>
+
+
+            )}
+
+            <div className="p-4">
+              {files.length !== 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                  {files.map((file, index) => {
+                    const { icon, color, bg } = getFileIcon(file.file_name);
+
+                    return (
+                      <div
+                        key={index}
+                        className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 p-3 flex flex-col justify-between"
                       >
-                        <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
-                          <Plus className='w-3.5 h-3.5' />
+                        {/* 🔹 Exit number & Row number */}
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-[13px] font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded-full">
+                            {orderData.exit_number}-{file.raw_number}
+                          </span>
                         </div>
-                        Kiritish
-                      </button>
-                    </div>
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-4">
-                    {orderData.executors && orderData.executors.length > 0 ? (
-                      orderData.executors.map((executor, index) => (
-                        <div
-                          key={index}
-                          className="bg-white w-[300px] h-[160px] rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden"
-                        >
-                          <div className="p-5">
-                            {/* Header with number and status */}
-                            <div className="flex items-center justify-between mb-4">
-                              <span className="text-sm font-semibold text-gray-500">№ {index + 1}</span>
-                              <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-full">
-                                {executor?.executor_type?.name}
-                              </span>
+                        {/* 🔸 Fayl ma’lumotlari */}
+                        <div className='flex '>
+
+                          <div className="flex items-center gap-4 mb-3">
+                            <div className={`p-3 rounded-lg ${bg}`}>
+                              <div className={`${color} text-3xl`}>{icon}</div>
                             </div>
-
-                            {/* Employee info */}
-                            <div className="mb-4">
-                              <p className="text-sm text-gray-500 mb-1">Imzolovchi xodim</p>
-                              <p className="text-sm font-semibold text-gray-900">{executor?.executor?.name}</p>
-                            </div>
-
-                            {/* Message */}
-                            {executor.message && (
-                              <div className="mb-4">
-                                <p className="text-xs text-gray-500 mb-1">Imzolash holati</p>
-                                <p className="text-sm text-gray-700">{executor.message}</p>
-                              </div>
-                            )}
-
-                            {/* Date */}
-                            <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
-                              <p className="text-xs text-gray-500">Sana</p>
-                              <p className="text-sm text-gray-900 font-medium">{executor.confirmation_date}</p>
+                            <div className="flex flex-col">
+                              <h4 className="text-gray-800 font-semibold text-[12px] truncate w-40">
+                                {file.file_name}
+                              </h4>
+                              {file.user}
+                              <p className="text-gray-500 text-[12px] mt-1">{formatDate(file.date)}</p>
                             </div>
                           </div>
+
+                          {/* 🔸 Action tugmalar */}
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => setSelectedFile(file)}
+                              className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition"
+                              title="Ko‘rish"
+                            >
+                              <EyeOutlined className="text-lg" />
+                            </button>
+                            <button
+                              onClick={() => handleDownload(file)}
+                              className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition"
+                              title="Yuklab olish"
+                            >
+                              <DownloadOutlined className="text-lg" />
+                            </button>
+                          </div>
+
                         </div>
-                      ))
-                    ) : (
-                      <div className="w-full flex flex-col items-center justify-center py-10 rounded-lg border-gray-200">
-                        <p className="text-gray-500 text-sm font-medium">Imzolovchilar mavjud emas</p>
                       </div>
-                    )}
-                  </div>
-
+                    );
+                  })}
                 </div>
-                <hr/>
-                </>
+              ) : (
+                <p className="text-gray-900 font-semibold text-xl text-center">
+                  Hozircha fayllar mavjud emas.
+                </p>
+              )}
 
-                {/* Attach document */}
-                <div className='flex items-center justify-between p-6'>
-                  <div>
-                    <h1 className='text-xl text-[#000] font-semibold'>Hujjatlar ruyhati</h1>
-                  </div>
-                  <div>
+              {/* 🟣 PDF modal */}
+              {selectedFile && (
+                <div
+                  className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
+                  onClick={() => setSelectedFile(null)}
+                >
+                  <div
+                    className="bg-white w-11/12 h-[90vh] rounded-xl overflow-hidden shadow-xl flex flex-col"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <iframe
+                      src={`https://ekomplektasiya.uz/ekomplektasiya_backend/hs/district-orders/${id}/file/${selectedFile.raw_number}`}
+                      title="PDF Viewer"
+                      className="flex-1 border-none"
+                    />
                     <button
-                      onClick={() => setFileUploadModal(true)}
-                      className='group relative bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-                      aria-label="Hujjat biriktirish"
+                      onClick={() => setSelectedFile(null)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white py-2 font-medium"
                     >
-                      <div className='bg-white/20 p-2 rounded-md group-hover:bg-white/30 transition-colors'>
-                        <FilePlus2 className='w-3 h-3' />
-                      </div>
-                      <span>Hujjat biriktirish</span>
+                      Yopish
                     </button>
                   </div>
                 </div>
-
-                {fileUploadModal && (
-                  <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-center justify-center z-50" onClick={() => setFileUploadModal(false)}>
-                    <div className="bg-white rounded-lg p-6 w-96 flex flex-col" onClick={(e) => e.stopPropagation()}>
-                      {/* Top */}
-                      <div className='flex items-center justify-between mb-4 pb-2 border-b'>
-                        <h2 className="text-xl font-semibold">Hujjat biriktirish</h2>
-                        <button className='text-2xl' onClick={() => setFileUploadModal(false)}>&times;</button>
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Hujjat turi</label>
-                        <Select
-                          style={{ width: '100%' }}
-                          placeholder="Hujjat turini tanlang"
-                          value={documentFormData.selectedDocumentType || undefined}
-                          onChange={(value) => {
-                            setDocumentFormData(prev => ({ ...prev, selectedDocumentType: value }))
-                          }}
-                          options={documentTypes.map(docType => ({ value: docType.id, label: docType.name }))}
-                        />
-                      </div>
-                      <div className="mb-4">
-                        <FileDropZone file={file} setFile={setFile} />
-                      </div>
-
-                      <Button
-                        className="bg-gray-100 p-2 rounded-lg text-sm cursor-pointer hover:bg-blue-400 hover:text-white ml-auto"
-                        onClick={handleFileAttach}
-                        disabled={!file || !documentFormData?.selectedDocumentType}
-                      >
-                        Yuklash
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-white rounded-xl mb-6 overflow-x-auto">
-                  {files.length !== 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                      {files.map((file, index) => {
-                        const { icon, color, bg } = getFileIcon(file.file_name);
-                        return (
-                          <div
-                            key={index}
-                            className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 p-3 flex flex-col justify-between"
-                          >
-                            <div className="flex justify-between items-center mb-3">
-                              <span className="text-[13px] font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded-full">
-                                {orderData.exit_number}-{file.raw_number}
-                              </span>
-                            </div>
-
-                            <div className='flex '>
-                              <div className="flex items-center gap-4 mb-3">
-                                <div className={`p-3 rounded-lg ${bg}`}>
-                                  <div className={`${color} text-3xl`}>{icon}</div>
-                                </div>
-                                <div className="flex flex-col">
-                                  <h4 className="text-gray-800 font-semibold text-[12px] truncate w-40">
-                                    {file.file_name}
-                                  </h4>
-                                  {file.user}
-                                  <p className="text-gray-500 text-[12px] mt-1">{formatDate(file.date)}</p>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-col gap-2">
-                                <button
-                                  onClick={() => deleteFile(file)}
-                                  className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition"
-                                  title="Ko'rish"
-                                >
-                                  <Trash className="text-lg text-red-600" />
-                                </button>
-                                <button
-                                  onClick={() => setSelectedFile(file)}
-                                  className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition"
-                                  title="Ko'rish"
-                                >
-                                  <EyeOutlined className="text-lg" />
-                                </button>
-                                <button
-                                  onClick={() => handleDownload(file)}
-                                  className="p-1 rounded-md text-gray-600 hover:text-purple-700 hover:bg-gray-100 transition"
-                                  title="Yuklab olish"
-                                >
-                                  <DownloadOutlined className="text-lg" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 font-semibold text-md text-center">
-                      Hozircha fayllar mavjud emas.
-                    </p>
-                  )}
-
-                  {selectedFile && (
-                    <div
-                      className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-                      onClick={() => setSelectedFile(null)}
-                    >
-                      <div
-                        className="bg-white w-11/12 h-[90vh] rounded-xl overflow-hidden shadow-xl flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <iframe
-                          src={`https://ekomplektasiya.uz/ekomplektasiya_backend/hs/sale-orders/${id}/file/${selectedFile.raw_number}`}
-                          title="PDF Viewer"
-                          className="flex-1 border-none"
-                        />
-                        <button
-                          onClick={() => setSelectedFile(null)}
-                          className="bg-purple-600 hover:bg-purple-700 text-white py-2 font-medium"
-                        >
-                          Yopish
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="sticky bottom-0 right-0 left-0 bg-white border-t border-gray-200 shadow-sm z-40 px-6 py-4 flex flex-wrap md:flex-nowrap items-center justify-between">
-              {/* Text Area */}
-              <div className='flex-1 max-w-md'>
-                <TextArea
-                  placeholder='Qisqacha mazmun yozing...'
-                  className='rounded-xl border-2 border-gray-200 focus:border-blue-400 hover:border-gray-300 transition-colors shadow-sm'
-                  style={{ height: "30px" }}
-                />
-              </div>
-
-              <div className='flex gap-4'>
-                {/* Save Button */}
-                <button
-                  className='group bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-                  onClick={handleUpdateOrder}
-                  aria-label="Saqlash"
-                >
-                  <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
-                    <CircleCheckBig className="w-3 h-3" />
-                  </div>
-                  <span>Tasdiqlash</span>
-                </button>
-
-                {/* Save Button */}
-                <button
-                  className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-                  onClick={handleUpdateOrder}
-                  aria-label="Saqlash"
-                >
-                  <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
-                    <Save className="w-3 h-3" />
-                  </div>
-                  <span>Saqlash</span>
-                </button>
-
-                <button
-                  className='group bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white px-4 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-                  onClick={() => { fetchSenderEmployees(), setshowRecepModal(true); }}
-                  aria-label="Saqlash"
-                >
-                  <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
-                    <Save className='w-3 h-3' />
-                  </div>
-                  <span>Yuborish</span>
-                </button>
-                <button
-                  className='group bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-                  onClick={handleDeleteOrder}
-                  aria-label="O'chirish"
-                >
-                  <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
-                    <Trash className="w-3 h-3" />
-                  </div>
-                  <span>O'chirish</span>
-                </button>
-              </div>
+              )}
             </div>
           </div>
-        ) : (
-          <>
-            <ComplektatsiyaOrderSining  />
-          </>
-        )
-      }
+
+        </div>
+
+      </div>
+      <div className="sticky bottom-0 right-0 left-0 bg-white border-t border-gray-200 shadow-sm z-40 px-6 py-4 flex flex-wrap md:flex-nowrap items-center justify-between gap-6">
+        {/* TextArea */}
+        <div className="flex-1 max-w-md w-full">
+          <TextArea
+            placeholder='Qisqacha mazmun yozing...'
+            className='rounded-xl border-2 border-gray-200 focus:border-blue-400 hover:border-gray-300 transition-colors shadow-sm'
+            style={{ height: "50px" }}
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center gap-4">
+          <button
+            className='group bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-medium cursor-pointer'
+          >
+            <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
+              <CircleCheckBig className="w-3 h-3" />
+            </div>
+            <span>Tasdiqlash</span>
+          </button>
+
+          <button
+            className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-medium cursor-pointer'
+          >
+            <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
+              <Save className="w-3 h-3" />
+            </div>
+            <span>Saqlash</span>
+          </button>
+          <button
+            className='group bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-medium cursor-pointer'
+            onClick={handleDeleteOrder}
+          >
+            <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
+              <Trash className="w-3 h-3" />
+            </div>
+            <span>O‘chirish</span>
+          </button>
+        </div>
+      </div>
 
       {
         showRemainders && (
@@ -1509,108 +961,53 @@ const RegionOrderDetail: React.FC = () => {
           onClick={() => setShowEmployeeModal(false)}
         >
           <div
-            className="bg-white rounded-lg w-[900px] p-6 shadow-lg"
+            className="bg-white rounded-lg w-[600px] p-6 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-3 mb-4">
               <h2 className="text-lg font-semibold">Imzolovchi hodimni tanlang</h2>
               <button
-                className="text-xl font-bold hover:text-black cursor-pointer"
+                className="text-xl font-bold hover:text-red-500"
                 onClick={() => setShowEmployeeModal(false)}
               >
-                &times;
+                ×
               </button>
             </div>
 
-            <div className="max-h-[400px] max-w-[800px] overflow-y-auto">
+            <div className="max-h-[400px] overflow-y-auto">
               {employees.length === 0 ? (
                 <div className="text-center py-6 text-gray-500">Ma'lumot topilmadi</div>
               ) : (
                 <table className="w-full border-collapse">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="text-center px-4 py-2 text-sm font-semibold">Tanlash</th>
-                      <th className="text-left px-4 py-2 text-sm font-semibold">Xodim</th>
+                      <th className="text-left px-4 py-2 text-sm font-semibold">F.I.Sh.</th>
                       <th className="text-left px-4 py-2 text-sm font-semibold">Lavozimi</th>
-                      <th className="text-left px-4 py-2 text-sm font-semibold">Imzolovchi turi	</th>
+                      <th className="text-left px-4 py-2 text-sm font-semibold">Imzolash xolati</th>
+                      <th className="text-center px-4 py-2 text-sm font-semibold">Tanlash</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {employees.map((emp, index) => {
-                      const existingExecutor = orderData?.executors?.find(e => e.executor.id === emp.id);
-                      return (
-                        <tr
-                          key={index}
-                          className={`hover:bg-blue-50 transition ${existingExecutor ? "bg-blue-100" : ""}`}
-                        >
-                          <td className="px-4 py-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={!!existingExecutor}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  const newExecutor = {
-                                    executor: {
-                                      id: emp.id,
-                                      name: emp.name
-                                    },
-                                    executor_type: emp.executor_type || executorType[0]?.id || "",
-                                    status: { id: '', name: '' },
-                                    message: "",
-                                    confirmation_date: new Date().toISOString(),
-                                  };
-                                  setOrderData(prev => prev ? {
-                                    ...prev,
-                                    executors: [...(prev.executors || []), newExecutor]
-                                  } : prev);
-                                } else {
-                                  setOrderData(prev => prev ? {
-                                    ...prev,
-                                    executors: prev.executors.filter(e => e.executor.id !== emp.id)
-                                  } : prev);
-                                }
-                              }}
-                            />
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{emp.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{emp.position}</td>
-                          <td>
-                            <Select
-                              placeholder="Imzolovchi turini tanlang"
-                              style={{ width: 200 }}
-                              value={
-                                existingExecutor?.executor_type && typeof existingExecutor.executor_type === 'object'
-                                  ? existingExecutor.executor_type.id
-                                  : existingExecutor?.executor_type || undefined
-                              }
-                              onChange={(value) => {
-                                setOrderData(prev => {
-                                  if (!prev) return prev;
-                                  return {
-                                    ...prev,
-                                    executors: prev.executors.map(e =>
-                                      e.executor.id === emp.id
-                                        ? {
-                                          ...e,
-                                          executor_type: value
-                                        }
-                                        : e
-                                    )
-                                  };
-                                });
-                              }}
-                            >
-                              {executorType.map((type) => (
-                                <Select.Option key={type.id} value={type.id}>
-                                  {type.name}
-                                </Select.Option>
-                              ))}
-                            </Select>
-                          </td>
-
-                        </tr>
-                      );
-                    })}
+                    {employees.map((emp, index) => (
+                      <tr
+                        key={index}
+                        className={`hover:bg-blue-50 transition ${selectedEmployee?.id === emp.id ? "bg-blue-100" : ""
+                          }`}
+                      >
+                        <td className="px-4 py-2 text-sm text-gray-800">{emp.name}</td>
+                        <td className="px-4 py-2 text-sm text-gray-800">{emp.position}</td>
+                        <td className="px-4 py-2 text-sm text-gray-800">{emp.message}</td>
+                        <td className="px-4 py-2 text-center">
+                          <input
+                            type="radio"
+                            checked={selectedEmployee?.id === emp.id}
+                            onChange={() => setSelectedEmployee(emp)}
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-800"></td>
+                        <td className="px-4 py-2 text-sm text-gray-800"></td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}
@@ -1623,199 +1020,54 @@ const RegionOrderDetail: React.FC = () => {
               >
                 Tanlash
               </Button>
+
             </div>
           </div>
         </div>
       )}
 
-
-      {showRecepModal && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setshowRecepModal(false)}
-        >
-          <div
-            className="bg-white rounded-lg w-[600px] p-6 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b pb-3 mb-4">
-              <h2 className="text-lg font-semibold">Respublikda qabul qiluvchi xodimdi tanlang</h2>
-              <button
-                className="text-xl font-bold hover:text-red-500"
-                onClick={() => setshowRecepModal(false)}
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="max-h-[400px] max-w-[700px] overflow-y-auto">
-              {sender_employees.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">Ma'lumot topilmadi</div>
-              ) : (
-                <table className="w-full border-collapse">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="text-center px-4 py-2 text-sm font-semibold">Tanlash</th>
-                      <th className="text-left px-4 py-2 text-sm font-semibold">F.I.Sh.</th>
-                      <th className="text-center px-4 py-2 text-sm font-semibold">Lavozimi</th>
-
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sender_employees.map((emp, index) => {
-                      return (
-                        <tr
-                          key={index}
-                          className={`hover:bg-blue-50 transition }`}
-                        >
-                          <td className="px-4 py-2 text-center">
-                            <input
-                              type="checkbox"
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSenderToRepublic({
-                                    order_id: orderData?.id || "",
-                                    receiver_republic: emp.id,
-                                    receiver_republic_name: emp.name,
-                                  });
-                                } else {
-                                  setSenderToRepublic(null);
-                                }
-                              }}
-                              checked={SenderToRepublic?.receiver_republic === emp.id}
-                            />
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{emp.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{emp.position}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            <div className="flex justify-end mt-5">
-              <Button
-                type="primary"
-                onClick={addSendToRepublic}
-              >
-                Saqlash
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    {showIjrochiModal && (
-      <div
-        className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-        onClick={() => setShowIjrochiModal(false)}
+      {/* 🔹 Tanlov modali */}
+      <Modal
+        title={
+          modalType === "model"
+            ? "Modelni tanlang"
+            : modalType === "size"
+              ? "O‘lchamni tanlang"
+              : modalType === "unit"
+                ? "Birlikni tanlang"
+                : modalType === "product_type"
+                  ? "Tovar turini tanlang"
+                  : ""
+        }
+        open={modalVisible}
+        onCancel={() => setModalVisible(false)}
+        footer={null}
+        width={600}
       >
-        <div
-          className="bg-white rounded-lg w-[600px] p-6 shadow-lg"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between border-b pb-3 mb-4">
-            <h2 className="text-lg font-semibold">Ijrochilarni tanlang</h2>
-            <button
-              className="text-xl font-bold hover:text-red-500"
-              onClick={() => setShowIjrochiModal(false)}
+        {/* <div className="space-y-2">
+          {paginatedList.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => handleSelectModalItem(item)}
+              className="border rounded-md p-2 hover:bg-blue-100 cursor-pointer"
             >
-              &times;
-            </button>
-          </div>
-
-          <div className="max-h-[400px] max-w-[700px] overflow-y-auto">
-            {sender_employees.length === 0 ? (
-              <div className="text-center py-6 text-gray-500">Ma'lumot topilmadi</div>
-            ) : (
-              <table className="w-full border-collapse">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="text-center px-4 py-2 text-sm font-semibold">№</th>
-                    <th className="text-center px-4 py-2 text-sm font-semibold">Tanlash</th>
-                    <th className="text-left px-4 py-2 text-sm font-semibold">F.I.Sh.</th>
-                    <th className="text-center px-4 py-2 text-sm font-semibold">Lavozimi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sender_employees.map((emp, index) => {
-                    const isChecked = orderData?.performers?.some(
-                      performer => performer.performer.id === emp.id
-                    );
-                    
-                    return (
-                      <tr
-                        key={index}
-                        className={`hover:bg-blue-50 transition ${isChecked ? "bg-blue-100" : ""}`}
-                      >
-                        <td className="px-4 py-2 text-center text-sm font-semibold">
-                          {index + 1}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => {
-                              setOrderData(prev => {
-                                if (!prev) return prev;
-                                
-                                if (e.target.checked) {
-                                  // Add new performer with row_number
-                                  const newPerformer = {
-                                    performer: {
-                                      id: emp.id,
-                                      name: emp.name
-                                    },
-                                    description: "",
-                                    row_number: (prev.performers?.length || 0) + 1 // <- yangi row_number
-                                  };
-                                  return {
-                                    ...prev,
-                                    performers: [...(prev.performers || []), newPerformer]
-                                  };
-                                } else {
-                                  // Remove performer and reorder row_numbers
-                                  const filteredPerformers = prev.performers.filter(
-                                    performer => performer.performer.id !== emp.id
-                                  );
-                                  
-                                  // Reorder row_numbers
-                                  const reorderedPerformers = filteredPerformers.map((performer, idx) => ({
-                                    ...performer,
-                                    row_number: idx + 1
-                                  }));
-                                  
-                                  return {
-                                    ...prev,
-                                    performers: reorderedPerformers
-                                  };
-                                }
-                              });
-                            }}
-                          />
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-800">{emp.name}</td>
-                        <td className="px-4 py-2 text-sm text-gray-800">{emp.position}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-      </div>
-
-            <div className="flex justify-end mt-5">
-              <Button
-                type="primary"
-                onClick={handleSelectIjrochi}
-              >
-                Saqlash
-              </Button>
+              {item.name}
             </div>
-          </div>
+          ))}
         </div>
-      )}
+
+        <div className="flex justify-center mt-4">
+          <Pagination
+            current={modalPage}
+            pageSize={modalPageSize}
+            total={getModalList().length}
+            onChange={(page) => setModalPage(page)}
+            size="small"
+          />
+        </div> */}
+      </Modal>
+
+      {/* 🔴 O'chirish tasdiqlash modali */}
       <Modal
         title={
           deleteModalError
@@ -1853,10 +1105,10 @@ const RegionOrderDetail: React.FC = () => {
         }
         bodyStyle={{
           textAlign: "center",
-          padding: deleteModalError ? "50px 30px" : "26px",
+          padding: deleteModalError ? "16px 16px" : "16px",
         }}
       >
-        {deleteModalError && (
+        {deleteModalError ? (
           <p
             style={{
               color: "#ff4d4f",
@@ -1868,13 +1120,22 @@ const RegionOrderDetail: React.FC = () => {
           >
             {deleteModalError}
           </p>
+        ) : (
+          <p
+            style={{
+              fontSize: "16px",
+              color: "#555",
+              lineHeight: "1.6",
+              marginBottom: 0,
+            }}
+          >
+            Bu amalni qaytarib bo‘lmaydi. Davom etasizmi?
+          </p>
         )}
       </Modal>
+
     </>
   );
 };
 
-export default RegionOrderDetail;
-
-
-
+export default ComplektasiyaOrderDetail;
