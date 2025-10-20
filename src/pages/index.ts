@@ -1,0 +1,15 @@
+export { default as Home } from "./Home/Home";
+export { default as Login } from "./Auth/Login";
+export { default as ProductsInput } from "./Products/ProductIn/ProductInput";
+export { default as ProductInputDetailPage } from "./Products/ProductIn/ProductInputDetailPage";
+export { default as ProductOutput } from "./Products/ProductsOut/ProductOutput";
+export { default as ProductOutDetailPage } from "./Products/ProductsOut/ProductOutDetailPage";
+export { default as WarehouseTransfer } from "./Transfer/WarehouseTransfer";
+export { default as WarehouseTransferDetail } from "./Transfer/WarehouseTransferDetail";
+export { default as ProductTurnOverReport } from "./Reports/ProductTurnOverReport";
+export { default as DistrictOrder } from "./Orders/DistrictOrder/DistrictOrder";
+export { default as DistrictOrderDetail } from "./Orders/DistrictOrder/DistrictOrderDetail";
+export { default as RegionOrder } from "./Orders/RegionOrder/RegionOrder";
+export { default as RegionOrderDetail } from "./Orders/RegionOrder/RegionOrderDetail";
+export { default as KomplektasiyaOrder } from "./Orders/Complektasiya/ComplektasiyaOrder";
+export { default as PriceAnalysis } from "./PriceAnalysis/PriceAnalysis";
