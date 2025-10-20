@@ -51,7 +51,7 @@ const PriceAnalysis: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key.toLowerCase() === "f") {
-        e.preventDefault(); // brauzer qidiruvini to‘xtatadi
+        e.preventDefault(); // brauzer qidiruvini to‘xtatadi   
         searchInputRef.current?.focus(); // inputga fokus beradi
       }
     };
@@ -60,7 +60,7 @@ const PriceAnalysis: React.FC = () => {
   }, []);
 
   return (
-    <>
+    <>  
       {isCreateFormModalOpen ? (
         <>
           <PriceAnalysisForm isCreateFormModalOpen={isCreateFormModalOpen} setIsCreateFormModalOpen={setIsCreateFormModalOpen} />

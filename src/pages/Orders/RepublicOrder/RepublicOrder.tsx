@@ -511,7 +511,7 @@ const RepublicOrder: React.FC = () => {
                         key={index}
                         onClick={() => handleDocumentClick(item.id)}
                       >
-                        <TableCell className="py-3 px-4">{item.exit_number}</TableCell>
+                        <TableCell className="py-3 px-4">{orderType === "outgoing" ? item.exit_number : item.reception_number} </TableCell>
                         <TableCell className="py-3 px-4">
                           {new Date(item.exit_date)
                             .toLocaleString("uz-UZ", {

@@ -54,8 +54,30 @@ interface FormDataType {
   executors: Executors[]
 }
 
+interface DocumentInfo {
+  id: string;
+  type_document_for_filter: string; // "Вилоятдан" | "Тумандан"
+  application_status_district: string; // "Bekor qilingan" va h.k.
+  confirmation_date: string;
+  is_approved: boolean;
+  is_seen: boolean;
+  exit_date: string;
+  exit_number: string;
+  from_district: string;
+  sender_from_district: string;
+  to_region: string;
+  recipient_region: string;
+  reception_date: string;
+  reception_number: string;
+  from_region: string;
+  sender_from_region: string;
+  to_district: string;
+  recipient_district: string;
+}
+
 interface IDistrictOrderFormProps {
-  setIsCreateFormModalOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setIsCreateFormModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setData: React.Dispatch<React.SetStateAction<DocumentInfo[]>>
 }
 
 const initialFormData = {
@@ -81,7 +103,7 @@ const CREATE_ENDPOINT = "/republic-orders/create/";
 
 type Executors = { id: string; name: string; number: number; position: string; region: string; district: string; executor_type:string;};
 
-const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOpen }) => {
+const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOpen, setData }) => {
   // FormData
   const [formData, setFormData] = useState<FormDataType>(initialFormData);
   // yuqoriga qo'shing
@@ -111,8 +133,8 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
   const { currentUserInfo } = useAppSelector(state => state.info);
   const { order_types } = useAppSelector(state => state.product);
   const [executorType, setexecutorType] = useState<any[]>([]);
-  console.log(order_types, 'allalwelwewl')
-  console.log(currentUserInfo, 'allalwelwewl')
+  
+  console.log(order_types)
 
 
   const handleView = async (f: FileData) => {
@@ -187,9 +209,9 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
   ) => {
     const updatedProducts = formData.products.map((product) => {
       if (product.raw_number === Number(raw_number)) {
-        return { ...product, [key]: value }; // faqat kerakli tovarni yangilaymiz
+        return { ...product, [key]: value };
       }
-      return product; // boshqa tovarlar o'zgarmaydi
+      return product;
     });
 
     setFormData((prev) => ({
@@ -225,14 +247,12 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
         const response = await axiosAPI.get("employees/list");
         const type_response = await axiosAPI.get('enumerations/excuter_types');
         
-        // Executor type larni to'g'ri olish
         if (type_response.status === 200 && Array.isArray(type_response.data)) {
           setexecutorType(type_response.data);
         } else {
           setexecutorType([]);
         }
         
-        // Hodimlarni olish
         if (response.status === 200 && Array.isArray(response.data.results)) {
           setEmployees(response.data.results);
         } else {
@@ -304,12 +324,14 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
         order_type: p.order_type,
         description: p.description || "",
       })),
+      goods_received:[],
       executors: formattedExecutors,
     };
   
     try {
       const response = await axiosAPI.post(`/republic-orders/update/${documentID}`, payload);
       if (response.status === 200) {
+        setData(prev => [...prev, response.data])
         toast("Hujjat muvofaqqiyatli saqlandi", { type: "success" });
         setIsCreateFormModalOpen(false);
       }
@@ -334,7 +356,7 @@ const handleCreateDefaultDocument = useCallback(async () => {
   
   const formattedExecutors = formData.executors.map((ex) => ({
     executor: ex.id,
-    executor_type: ex.executor_type, // ID sifatida
+    executor_type: ex.executor_type,
   }));
 
   const payload = {
