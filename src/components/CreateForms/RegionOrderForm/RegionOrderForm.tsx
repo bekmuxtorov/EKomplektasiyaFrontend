@@ -1,17 +1,18 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback, useEffect, useState } from "react";
 import Typography from "@mui/material/Typography";
 import { Button, Input, InputNumber, Popconfirm, Select, message } from "antd";
-import { FilePlus2, Layers, Pencil, Plus, Save, Trash2 } from "lucide-react";
+import { FilePlus2, Pencil, Plus, Trash2,Layers,Search } from "lucide-react";
 import { axiosAPI } from "@/services/axiosAPI";
 import { useAppSelector } from "@/store/hooks/hooks";
-import { DownloadOutlined, EyeOutlined, FileExcelOutlined, FileImageOutlined, FilePdfOutlined, FileTextOutlined, FileWordOutlined } from "@ant-design/icons";
+import { DownloadOutlined, EyeOutlined, FileExcelOutlined, 
+  FileImageOutlined, FilePdfOutlined, FileTextOutlined, FileWordOutlined
+
+} from "@ant-design/icons";
 import FieldModal from "@/components/modal/FieldModal";
 import FileDropZone from "@/components/FileDropZone";
 import TextArea from "antd/es/input/TextArea";
 import { toast } from "react-toastify";
-
+import SelectRemainsModal from '@/components/CreateForms/SelectRemainsModal';
 // ===== Types =====
 type ID = string;
 
@@ -56,8 +57,8 @@ interface FormDataType {
 
 interface DocumentInfo {
   id: string;
-  type_document_for_filter: string; // "Вилоятдан" | "Тумандан"
-  application_status_district: string; // "Bekor qilingan" va h.k.
+  type_document_for_filter: string;
+  application_status_district: string;
   confirmation_date: string;
   is_approved: boolean;
   is_seen: boolean;
@@ -101,7 +102,7 @@ const defaultProductRow = {
 
 const CREATE_ENDPOINT = "/region-orders/create/";
 
-type Executors = { id: string; name: string; number: number; position: string; region: string; district: string; executor_type: string; };
+type Executors = { id: string; name: string; number: number; position: string; region: string; district: string; executor_type:string;};
 
 const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOpen, setData }) => {
   // FormData
@@ -133,8 +134,28 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
   const { currentUserInfo } = useAppSelector(state => state.info);
   const { order_types } = useAppSelector(state => state.product);
   const [executorType, setexecutorType] = useState<any[]>([]);
-
-  console.log(order_types)
+  const [remainders, setRemainders] = useState<ProductRemainder[]>([]);
+  const [showRemainders, setShowRemainders] = useState(false);
+  
+  const fetchRemaindersUserWarehouse = useCallback(async () => {
+      try {
+        const response = await axiosAPI.get(`/warehouses/list?region=${currentUserInfo?.region.name}&district=${currentUserInfo?.district.name}`);
+        if (response.status === 200) {
+          const warehouseId = response.data[0].id;
+          const remaindersResponse = await axiosAPI.post("remainders/warehouses", {
+            warehouse: warehouseId,
+            date: new Date().toISOString()
+          });
+          if (remaindersResponse.status === 200) {
+            setRemainders(remaindersResponse.data);
+            setShowRemainders(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching remainders:', error);
+        message.error('Qoldiqlarni olishda xatolik yuz berdi!');
+      }
+  }, [currentUserInfo?.region.name, currentUserInfo?.district.name]);
 
 
   const handleView = async (f: FileData) => {
@@ -243,25 +264,25 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
 
   // 🔹 Hodimlar ro'yxatini olish
   const fetchEmployees = async () => {
-    try {
-      const response = await axiosAPI.get("employees/list");
-      const type_response = await axiosAPI.get('enumerations/excuter_types');
-
-      if (type_response.status === 200 && Array.isArray(type_response.data)) {
-        setexecutorType(type_response.data);
-      } else {
-        setexecutorType([]);
+      try {
+        const response = await axiosAPI.get("employees/list");
+        const type_response = await axiosAPI.get('enumerations/excuter_types');
+        
+        if (type_response.status === 200 && Array.isArray(type_response.data)) {
+          setexecutorType(type_response.data);
+        } else {
+          setexecutorType([]);
+        }
+        
+        if (response.status === 200 && Array.isArray(response.data.results)) {
+          setEmployees(response.data.results);
+        } else {
+          setEmployees([]);
+        }
+      } catch (error) {
+        console.error("Hodimlarni olishda xatolik:", error);
       }
-
-      if (response.status === 200 && Array.isArray(response.data.results)) {
-        setEmployees(response.data.results);
-      } else {
-        setEmployees([]);
-      }
-    } catch (error) {
-      console.error("Hodimlarni olishda xatolik:", error);
-    }
-  };
+    };
 
   // Validatsiya
   const validate = (): string[] => {
@@ -295,20 +316,20 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
     }
   }
 
-  const handleSaveData = async () => {
+    const handleSaveData = async () => {
     const errors = validate();
     if (errors.length) {
       toast(errors.join("\n"), { type: "error" });
       return;
     }
-
+  
     const userId = currentUserInfo?.id ?? "";
-
+  
     const formattedExecutors = formData.executors.map((ex) => ({
       executor: ex.id,
-      executor_type: ex.executor_type,
+      executor_type: ex.executor_type, 
     }));
-
+  
     const payload = {
       exit_date: formData.exit_date,
       user: userId,
@@ -324,10 +345,10 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
         order_type: p.order_type,
         description: p.description || "",
       })),
-      goods_received: [],
+      goods_received:[],
       executors: formattedExecutors,
     };
-
+  
     try {
       const response = await axiosAPI.post(`/region-orders/update/${documentID}`, payload);
       if (response.status === 200) {
@@ -351,46 +372,46 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
     });
   };
 
-  const handleCreateDefaultDocument = useCallback(async () => {
-    const userId = currentUserInfo?.id;
+const handleCreateDefaultDocument = useCallback(async () => {
+  const userId = currentUserInfo?.id;
+  
+  const formattedExecutors = formData.executors.map((ex) => ({
+    executor: ex.id,
+    executor_type: ex.executor_type,
+  }));
 
-    const formattedExecutors = formData.executors.map((ex) => ({
-      executor: ex.id,
-      executor_type: ex.executor_type,
-    }));
+  const payload = {
+    exit_date: formData.exit_date,
+    user: userId,
+    description: formData.description || "",
+    products: formData.products.map((p) => ({
+      row_number: p.raw_number,
+      product: p.product,
+      model: p.model.id,
+      product_type: p.product_type.id,
+      size: p.size.id,
+      unit: p.unit.id,
+      quantity: p.quantity,
+      order_type: p.order_type,
+      description: p.description || "",
+    })),
+    executors: formattedExecutors, 
+  };
 
-    const payload = {
-      exit_date: formData.exit_date,
-      user: userId,
-      description: formData.description || "",
-      products: formData.products.map((p) => ({
-        row_number: p.raw_number,
-        product: p.product,
-        model: p.model.id,
-        product_type: p.product_type.id,
-        size: p.size.id,
-        unit: p.unit.id,
-        quantity: p.quantity,
-        order_type: p.order_type,
-        description: p.description || "",
-      })),
-      executors: formattedExecutors,
-    };
-
-    try {
-      const response = await axiosAPI.post(CREATE_ENDPOINT, payload);
-      const documentData = response.data;
-      if (response.status === 200 && documentData.success) {
-        console.log(documentData)
-        setDocumentConfirmed(false);
-        getDistrictOrderFile(documentData.document);
-        setDocumentID(documentData.document);
-      }
-    } catch (error: any) {
-      alert(error.response.data);
-      setIsCreateFormModalOpen(false);
+  try {
+    const response = await axiosAPI.post(CREATE_ENDPOINT, payload);
+    const documentData = response.data;
+    if (response.status === 200 && documentData.success) {
+      console.log(documentData)
+      setDocumentConfirmed(false);
+      getDistrictOrderFile(documentData.document);
+      setDocumentID(documentData.document);
     }
-  }, [currentUserInfo?.id, formData.executors, formData.description, formData.exit_date, formData.products, setIsCreateFormModalOpen]);
+  } catch (error: any) {
+    alert(error.response.data);
+    setIsCreateFormModalOpen(false);
+  }
+}, [currentUserInfo?.id, formData.executors, formData.description, formData.exit_date, formData.products, setIsCreateFormModalOpen]);
 
   const getDocumentTypes = async () => {
     try {
@@ -465,7 +486,6 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
     <>
       <div className="min-h-screen py-2 px-2 bg-white">
         <div className="max-w-8xl mx-auto bg-white">
-          {/* Header – hozircha bo'sh, keyin to'ldiriladi */}
           <div className="bg-white overflow-hidden flex items-center w-full">
             {documentConfirmed ? (
               <Button
@@ -483,11 +503,9 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
                 cancelText="Bekor qilish"
                 className="mr-6"
                 onCancel={() => {
-                  // Delete created document and get back
                   setIsCreateFormModalOpen(false)
                 }}
                 onConfirm={() => {
-                  // Save created document and get back
 
                 }}
               >
@@ -542,65 +560,74 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
             </div>
           </div>
 
-          {/* ===== Tovarlar ro'yxati ===== */}
+          
           <div>
-
+            <br />
             <div className="bg-transparent rounded-md flex justify-between mb-4">
-              <Typography fontSize={"18px"} style={{ margin: "20px 0" }} fontWeight={600} color="#0f172b">
-                Buyurtma uchun berilgan tovarlar ro‘yxati
-              </Typography>
-              <div className="flex items-center gap-3">
-                <button className='group relative bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 font-normal cursor-pointer'
-                  onClick={addRow}>
-                  <div className='bg-white/20 p-1 rounded-md group-hover:bg-white/30 transition-colors'>
-                    <Plus className="w-3 h-3" />
+              <div>
+                <h1 className='text-xl text-[#000] font-semibold'>Buyurtma uchun berilgan tovarlar ruyxati</h1>
+              </div>
+              <div className='flex items-center gap-3'>
+                <button
+                  onClick={addRow}
+                  className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
+                >
+                  <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
+                    <Plus className='w-3.5 h-3.5' />
                   </div>
                   Kiritish
                 </button>
                 <button
-                  className='group relative bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 font-normal cursor-pointer'
-                >
-                  <div className='bg-white/20 p-1 rounded-md group-hover:bg-white/30 transition-colors'>
-                    <Layers className='w-3 h-3' />
+                  className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
+                  onClick={fetchRemaindersUserWarehouse}>
+                  <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
+                    <Layers className='w-3.5 h-3.5' />
                   </div>
                   Qoldiqlar
                 </button>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Qidirish (Ctrl+F)"
+                    className="w-64 h-9 pl-9 text-sm border-slate-200 bg-white"
+                  />
+                </div>
               </div>
             </div>
-
-            <div className="bg-white rounded-xl mb-6 overflow-x-auto">
-              <div className="min-w-[1000px]">
-                <table className="w-full">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-y-auto mb-4">
+              <div className="overflow-x-auto">
+                <table className="w-full caption-bottom text-sm">
                   <thead className="bg-gray-50 border-b-2">
-                    <tr>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                    <tr className="[&_tr]:border-b bg-gradient-to-r from-slate-100 via-blue-50 to-purple-50">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         №
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Buyurtma turi
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Tovar nomi
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Tovar turi
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Model
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         O'lcham
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         O'lchov birligi
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Soni
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         Izoh
                       </th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                      <th className="px-3 py-2 text-center text-sm font-semibold text-gray-600">
                         -
                       </th>
                     </tr>
@@ -804,16 +831,9 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
                       })
                     ) : (
                       <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td className="px-4 py-2 text-gray-500 text-md font-semibold">Tovar tanlanmagan</td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
+                        <td colSpan={10} className="py-6 text-center text-gray-500 text-md font-semibold">
+                            Tovar qo'shilmagan
+                          </td>
                       </tr>
                     )}
                   </tbody>
@@ -890,35 +910,30 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
           </div>
 
           {/* ===== Imzolovchilar ro'yxati (skelet) ===== */}
-          <div className="mt-4">
-
-            <div className="bg-transparent rounded-md p-2 flex items-center justify-between mb-2">
-              <Typography fontSize={"20px"} style={{ margin: "20px 0" }} fontWeight={600} color="#0f172b">
-                Imzolovchilar
-              </Typography>
-              <div className="flex items-center gap-3">
-                <button
-                  className='group relative bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2.5 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 font-normal cursor-pointer'
-                  onClick={() => {
-                    fetchEmployees();
-                    setShowEmployeeModal(true);
-                  }}
+          <div className="mt-12">
+            <div className="bg-transparent rounded-md p-2 flex justify-between mb-2">
+              <div>
+                <h1 className='text-xl text-[#000] font-semibold'>Imzolovchilar</h1>
+              </div>
+              <div className='flex items-center gap-3'>
+                <button className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-2 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
+                  onClick={() => { fetchEmployees(), setShowEmployeeModal(true); }}
                 >
-                  <div className='bg-white/20 p-1 rounded-md group-hover:bg-white/30 transition-colors'>
-                    <Plus className="w-3 h-3" />
+                  <div className='bg-white/20 p-1 rounded-lg group-hover:bg-white/30 transition-colors'>
+                    <Plus className='w-3.5 h-3.5' />
                   </div>
                   Kiritish
                 </button>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl mb-6 overflow-x-auto">
-              <div className="min-w-[1000px]">
-                {/* Executors cards grid */}
-                <div className="grid grid-cols-4 gap-6">
-                  {formData.executors.length ? (
-                    formData.executors.map((ex, index) => (
-                      <div key={index} className="bg-white border shadow-xl p-4 rounded-xl flex flex-col gap-4 relative">
+            <div className="flex flex-wrap items-center gap-4">
+              {formData.executors.length ? (
+                  formData.executors.map((ex, index) => (
+                    <div
+                          key={index}
+                          className="bg-white w-[300px] h-[160px] rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden"
+                        >
                         <button className="absolute right-0 top-0 text-xl bg-red-500 text-white w-[26px] flex items-center justify-center h-[26px] rounded-bl-md cursor-pointer"
                           onClick={() => {
                             setFormData(prev => ({
@@ -945,40 +960,42 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
                         </p>
                       </div>
                     ))
-                  ) : (
-                    <div className="col-span-4 flex items-center justify-center py-6">
-                      <h2 className="text-lg font-semibold text-center text-gray-400">Imzolovchi yo'q</h2>
-                    </div>
-                  )}
+              ) : (
+                <div>
+                  <h2 className="text-2xl font-semibold text-center text-red-400">Imzolovchi yo'q</h2>
                 </div>
-
-              </div>
+              )}
             </div>
           </div>
 
           {/* Attach document */}
           <div className='flex items-center justify-center gap-6 p-6'>
             {/* File Upload Button */}
+            <button
+              onClick={() => setFileUploadModal(true)}
+              className='group relative bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-medium cursor-pointer'
+            >
+              <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
+                <FilePlus2 className='w-5 h-5' />
+              </div>
+              <span>Hujjat biriktirish</span>
+            </button>
 
+            {/* Text Area */}
+            <div className='flex-1 max-w-md'>
+              <TextArea
+                placeholder='Qisqacha mazmun yozing...'
+                className='rounded-xl border-2 border-gray-200 focus:border-blue-400 hover:border-gray-300 transition-colors shadow-sm'
+                style={{ height: "120px" }}
+              />
+            </div>
           </div>
 
           {/* 🔸 3. FAYLLAR RO‘YXATI */}
           <div className="px-6 mb-6">
-            <div className="flex items-center justify-between">
-              <Typography fontSize={"20px"} style={{ margin: "20px 0" }} fontWeight={600} color="#0f172b">
-                Biriktirilgan hujjatlar ro‘yxati
-              </Typography>
-              <button
-                onClick={() => setFileUploadModal(true)}
-                className='group relative bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-1.5 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 font-normal cursor-pointer'
-              >
-                <div className='bg-white/20 p-1.5 rounded-md group-hover:bg-white/30 transition-colors'>
-                  <FilePlus2 className='w-3.5 h-3.5' />
-                </div>
-                <span>Hujjat biriktirish</span>
-              </button>
-            </div>
-
+            <Typography fontSize={"20px"} style={{ margin: "20px 0" }} fontWeight={600} color="#0f172b">
+              Biriktirilgan hujjatlar ro‘yxati
+            </Typography>
 
             {files.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
@@ -1035,7 +1052,7 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
                 })}
               </div>
             ) : (
-              <p className="text-gray-400 font-semibold text-center text-lg">Hujjatlar yo‘q</p>
+              <p className="text-gray-500">Hujjatlar yo‘q</p>
             )}
           </div>
           {fileUploadModal && (
@@ -1073,30 +1090,18 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
             </div>
           )}
 
-
-        </div>
-        <div className="sticky bottom-0 right-0 left-0 bg-white border-t border-gray-200 shadow-sm z-40 px-6 py-4 flex flex-wrap md:flex-nowrap items-center justify-between gap-6">
-          {/* Text Area */}
-          <div className='flex-1 max-w-md'>
-            <TextArea
-              placeholder='Qisqacha mazmun yozing...'
-              className='rounded-xl border-2 border-gray-200 focus:border-blue-400 hover:border-gray-300 transition-colors shadow-sm'
-              style={{ height: "30px" }}
-            />
-          </div>
-          <div>
-            <button className='group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-medium cursor-pointer'
-              onClick={() => handleSaveData()}>
-              <div className='bg-white/20 p-1.5 rounded-lg group-hover:bg-white/30 transition-colors'>
-                <Save className="w-3 h-3" />
-              </div>
+          <div className="flex justify-end gap-3">
+            <Button type="primary" onClick={() => handleSaveData()}>
               Saqlash
-            </button>
+            </Button>
           </div>
         </div>
       </div>
-
-      {/* 🟣 Hodim tanlash modali (multiple selection) */}
+      {
+        showRemainders && (
+          <SelectRemainsModal onClose={() => setShowRemainders(false)} remainders={remainders} />
+        )
+      }
       {showEmployeeModal && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
@@ -1207,7 +1212,6 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
               )}
             </div>
 
-
             <div className="flex justify-end mt-5">
               <Button
                 type="primary"
@@ -1223,7 +1227,6 @@ const OrderWIndow: React.FC<IDistrictOrderFormProps> = ({ setIsCreateFormModalOp
               </Button>
             </div>
           </div>
-
         </div>
       )}
     </>

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
+import { Input } from '@/components/UI/input';
 import { FilePlus2, Plus, Search, Trash, Pencil } from 'lucide-react';
 import { axiosAPI } from '@/services/axiosAPI';
 import { useParams } from 'react-router-dom';
@@ -53,6 +54,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
   return btoa(binary);
 }
+
 
 interface IdName {
   id: string;
@@ -113,9 +115,6 @@ interface FileData {
   date: string;
 }
 
-interface RegionOrderSiningProps {
-  for_purpose: "signing" | "for_agreement"
-}
 
 interface DocumentFormData {
   selectedDocumentType: string;
@@ -146,11 +145,11 @@ interface CertificateDetails {
 }
 
 
-
-const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
+const ComplektatsiyaOrderSining: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   
   const [orderData, setOrderData] = useState<OrderDetail | null>(null);
+  console.log(orderData, 'wae12312')
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState<FileData[]>([]);
   const [open, setOpen] = useState(false);
@@ -161,8 +160,6 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
   const [fileUploadModal, setFileUploadModal] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [documentTypes, setDocumentTypes] = useState<IdName[]>([]);
-  const [eImzoOpen, setEImzoOpen] = useState(false);
-  
   const [documentFormData, setDocumentFormData] = useState<DocumentFormData>({
       selectedDocumentType: '',
       filename: '',
@@ -187,6 +184,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
   const [certificates, setCertificates] = useState<CertificateParsed[]>([]);
   const [keyID, setKeyID] = useState("")
   const [selectedCertificate, setSelectedCertificate] = useState<CertificateDetails | null>(null);
+  const [eImzoOpen, setEImzoOpen] = useState(false);
   
   const [signingData, setSigningData] = useState<{
       document_name: string;
@@ -194,7 +192,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
       data: any;
       number:number;
     }>({
-      document_name: "ЗаявкаПоРегионам",
+      document_name: "ЗаявкаПоКомплектация",
       number:0,
       id: id ?? "",
       data: ""
@@ -215,6 +213,9 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
     };
   };
 
+
+
+
   const handleModalOpen = () => {
     setModalOpen(true);
   };
@@ -224,10 +225,11 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
     setComment("");
   };
 
+  // Saqlash funksiyasini qo'shing
   const handleSave = async () => {
     try {
         if (!orderData) return;
-        const response = await axiosAPI.post(`/region-orders/update/${orderData.id}`, {
+        const response = await axiosAPI.post(`/sale-orders/update/${orderData.id}`, {
           ...orderData,
           products: orderData.products.map(p => ({
             ...p,
@@ -262,55 +264,63 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
     setModalOpen(false);
   };
   
+  
+
+  
+
   const handleView = async (f: FileData) => {
-      try {
-        setSelectedFileMeta(f);
-        const res = await axiosAPI.get(
-          `region-orders/${id}/file/${f.raw_number}`,
-          { responseType: "arraybuffer" }
-        );
-        const suggestedName =
-          f.file_name ||
-          `${orderData?.exit_number || "file"}-${f.raw_number}.${f.extension}`;
-        const mime =
-          inferMimeFromExt(suggestedName) ||
-          inferMimeFromExt(f.extension) ||
-          "application/octet-stream";
-        setPreviewFile(arrayBufferToFile(res.data, suggestedName, mime));
-        setPreviewOpen(true);
-      } catch (e) {
-        console.error(e);
-        toast("Faylni ochib bo‘lmadi", { type: "error" });
-      }
+        try {
+          setSelectedFileMeta(f);
+          const res = await axiosAPI.get(
+            `sale-orders/${id}/file/${f.raw_number}`,
+            { responseType: "arraybuffer" }
+          );
+          const suggestedName =
+            f.file_name ||
+            `${orderData?.exit_number || "file"}-${f.raw_number}.${f.extension}`;
+          const mime =
+            inferMimeFromExt(suggestedName) ||
+            inferMimeFromExt(f.extension) ||
+            "application/octet-stream";
+          setPreviewFile(arrayBufferToFile(res.data, suggestedName, mime));
+          setPreviewOpen(true);
+        } catch (e) {
+          console.error(e);
+          toast("Faylni ochib bo‘lmadi", { type: "error" });
+        }
   };
 
 
   const handleDownloadFile = async (f: FileData) => {
-      try {
-        const res = await axiosAPI.get(
-          `region-orders/${id}/file/${f.raw_number}`,
-          { responseType: "blob" }
-        );
-        const url = URL.createObjectURL(res.data as Blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download =
-          f.file_name ||
-          `${orderData?.exit_number || "file"}-${f.raw_number}.${f.extension}`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        console.error(e);
-        toast("Yuklab olishda xatolik", { type: "error" });
-      }
+        try {
+          const res = await axiosAPI.get(
+            `sale-orders/${id}/file/${f.raw_number}`,
+            { responseType: "blob" }
+          );
+          const url = URL.createObjectURL(res.data as Blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download =
+            f.file_name ||
+            `${orderData?.exit_number || "file"}-${f.raw_number}.${f.extension}`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error(e);
+          toast("Yuklab olishda xatolik", { type: "error" });
+        }
   };
 
+
+  const handleCancel = () => {
+    setOpen(false);
+  };
 
   const fetchOrderDetail = useCallback(async () => {
     if (!id) return;
     try {
-      const response = await axiosAPI.get(`region-orders/detail/${id}`);
-      setOrderData(response.data[0]);
+      const response = await axiosAPI.get(`sale-orders/detail/${id}`);
+      setOrderData(response.data);
     } catch (error) {
       console.log(error)
     } finally {
@@ -326,7 +336,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
   useEffect(() => {
     const fetchFiles = async () => {
       try {
-        const response = await axiosAPI.get(`region-orders/${id}/files/list`);
+        const response = await axiosAPI.get(`sale-orders/${id}/files/list`);
         if (Array.isArray(response.data)) {
           setFiles(response.data);
         } else {
@@ -340,37 +350,37 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
     };
 
     const fetchMessageFile = async () => {
-          try {
-            const response = await axiosAPI.get(
-              `region-orders/${id}/order-file/`
-            );
-            const fileUrl = response.data.file_url;
-            const fileName = fileUrl.split("/").pop() || "file";
-            const fileExt = (fileName.split(".").pop() || "").toLowerCase();
-            setSigningData((prev) => ({
-              ...prev,
-              number: fileName.split(".docm")[0],
-            }));
-            
-            const mime =
-              inferMimeFromExt(fileName) ||
-              inferMimeFromExt(fileExt) ||
-              "application/octet-stream";
-    
-            const res = await fetch(fileUrl);
-            const arrayBuffer = await res.arrayBuffer();
-            setMessageFileBinary(arrayBufferToBase64(arrayBuffer))
-            setMessageFile(arrayBufferToFile(arrayBuffer, fileName, mime));
-          } catch (error) {
-            console.error("Message file error:", error);
-          }
+              try {
+                const response = await axiosAPI.get(
+                  `sale-orders/${id}/order-file/`
+                );
+                const fileUrl = response.data.file_url;
+                const fileName = fileUrl.split("/").pop() || "file";
+                const fileExt = (fileName.split(".").pop() || "").toLowerCase();
+                setSigningData((prev) => ({
+                  ...prev,
+                  number: fileName.split(".docm")[0],
+                }));
+                
+                const mime =
+                  inferMimeFromExt(fileName) ||
+                  inferMimeFromExt(fileExt) ||
+                  "application/octet-stream";
+        
+                const res = await fetch(fileUrl);
+                const arrayBuffer = await res.arrayBuffer();
+                setMessageFileBinary(arrayBufferToBase64(arrayBuffer))
+                setMessageFile(arrayBufferToFile(arrayBuffer, fileName, mime));
+              } catch (error) {
+                console.error("Message file error:", error);
+              }
     };
-    
+
     if (id) {
       fetchFiles();
       fetchMessageFile();
     }
-    }, [id]);
+  }, [id]);
 
   const formatDate = (iso: string): string => {
     const date = new Date(iso);
@@ -505,7 +515,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
       
       console.log('📡 Serverga soʻrov yuborilmoqda...');
       
-      const response = await axiosAPI.post(`region-orders/files/create`, binary, {
+      const response = await axiosAPI.post(`sale-orders/files/create`, binary, {
         params,
         headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
       });
@@ -589,7 +599,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
         <div className="max-w-8xl mx-auto bg-white">
 
           {orderData.for_purpose === "signing" ?  (
-              <div className="p-6 bg-gray-50 rounded-lg shadow-sm mb-8 relative">
+            <div className="p-6 bg-gray-50 rounded-lg shadow-sm mb-8 relative">
                 <Button
                     onClick={() => {
                       setEImzoOpen(true);
@@ -609,8 +619,8 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
                     </div>
                   )}
               </div>
-              ) : (
-              <>
+            ) : (
+                <>
               <div className="p-6 bg-gray-50 rounded-lg shadow-sm mb-8 relative">
                 <Button type="primary" onClick={handleModalOpen}>
                   Kelishish
@@ -746,7 +756,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">№</th>
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Xabar xolati</th>
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Imzolovchi xodim</th>
-                                      <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Lavozim</th>
+                                      {/* <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Lavozim</th> */}
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Izoh</th>
                                       <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Sana</th>
                                     </tr>
@@ -755,9 +765,9 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
                                     {orderData.executors?.map((executor, index) => (
                                       <tr key={index} className="hover:bg-indigo-50 transition-colors">
                                         <td className="text-center px-6 py-4 text-sm text-gray-700">{index + 1}</td>
-                                        <td className="text-center px-6 py-4 text-sm text-gray-700">{executor.status_message?.name}</td>
+                                        <td className="text-center px-6 py-4 text-sm text-gray-700">{executor.answer_type?.name}</td>
                                         <td className="text-center px-6 py-4 text-sm text-gray-700 font-medium">{executor.executor?.name}</td>
-                                        <td className="text-center px-6 py-4 text-sm text-gray-700"></td>
+                                        {/* <td className="text-center px-6 py-4 text-sm text-gray-700">{}</td> */}
                                         <td className="text-center px-6 py-4 text-sm text-gray-700">{executor.description}</td>
                                         <td className="text-center px-6 py-4 text-sm text-gray-700">{executor.confirmation_date}</td>
                                       </tr>
@@ -879,6 +889,7 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
                               </p>
                             )}
           </div>
+
         </div>
       </div>
 
@@ -977,9 +988,8 @@ const RegionOrderSining: React.FC<RegionOrderSiningProps> = () => {
         />
       </Modal>
 
-
     </>
   );
 };
 
-export default RegionOrderSining;
+export default ComplektatsiyaOrderSining;

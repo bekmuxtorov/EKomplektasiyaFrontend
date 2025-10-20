@@ -8,7 +8,6 @@ import PriceAnalysisStep from './Steps/PriceAnalysisStep';
 import { toast } from 'react-toastify';
 import { Button } from 'antd';
 import { axiosAPI } from '@/services/axiosAPI';
-import { useNavigate } from 'react-router-dom';
 
 interface IPriceAnalysisFormProps {
   setIsCreateFormModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -19,7 +18,6 @@ const PriceAnalysisForm: React.FC<IPriceAnalysisFormProps> = ({ setIsCreateFormM
   const [formData, setFormData] = useState<any>();
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
 
   // Step configuration
   const steps = [
@@ -133,9 +131,7 @@ const PriceAnalysisForm: React.FC<IPriceAnalysisFormProps> = ({ setIsCreateFormM
               {steps[currentStep]?.title} - Qadam {currentStep + 1}/{steps.length}
             </p>
           </div>
-          <Button
-            onClick={() => navigate(-1)}
-            type='text' size='large' style={{ fontSize: "24px" }}>
+          <Button type='text' size='large' style={{fontSize: "24px"}}>
             &times;
           </Button>
         </div>
