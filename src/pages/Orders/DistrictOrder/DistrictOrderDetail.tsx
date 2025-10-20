@@ -1,11 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-	CircleCheckBig, FilePlus2, Plus,Save, Search, Trash, Trash2, 
-	Layers, X, Send, ArrowBigLeftDash, ArrowBigRightDash
-	
-} from 'lucide-react';
+import { CircleCheckBig, FilePlus2, Plus, Save, Search, Trash, Trash2, Layers, X } from 'lucide-react';
 import { Input } from '@/components/UI/input';
 
 import { axiosAPI } from '@/services/axiosAPI';
@@ -99,15 +95,8 @@ interface DocumentFormData {
 	fileBinary: string;
 }
 
-interface SenderToRegion {
-  order_id: string;
-  receiver_region: string;
-  receiver_republic_name: string;
-}
-
 const DistrictOrderDetail: React.FC = () => {
 	// State variables
-	
 	const [orderData, setOrderData] = useState<OrderDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [fileUploadModal, setFileUploadModal] = useState(false);
@@ -131,73 +120,13 @@ const DistrictOrderDetail: React.FC = () => {
 	const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
 	type FieldName = "product_type" | "model" | "size" | "unit" | "product";
 	const [activeField, setActiveField] = useState<{ field: FieldName; row_number: number } | null>(null);
-	
+
 	// Redux selectors
 	const { currentUserInfo } = useAppSelector(state => state.info);
 	const { order_types } = useAppSelector(state => state.product);
-	const [sender_employees, setSenderEmployees] = useState<any[]>([]);
-	const [showRecepModal, setshowRecepModal] = useState(false);
-	const [senderToRegion, setSenderToRegion] = useState<SenderToRegion | null>(null);
-	const [offset, setOffset] = useState<number>(0);
-	const [totalCount, setTotalCount] = useState<number>(0);
-	const [limit] = useState<number>(20);
-	const totalPages = Math.ceil(totalCount / limit);
-	const currentPage = Math.floor(offset / limit) + 1;
-	const [senderEmployeesLoading, setSenderEmployeesLoading] = useState(false);
-	const generatePageNumbers = () => {
-		const pages = [];
-		const maxVisible = 5;
-		let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-		let end = Math.min(totalPages, start + maxVisible - 1);
 
-		if (end - start < maxVisible - 1) {
-		start = Math.max(1, end - maxVisible + 1);
-		}
-
-		for (let i = start; i <= end; i++) {
-		pages.push(i);
-		}
-		return pages;
-	};
 	const navigate = useNavigate();
 
-	const addSendToRegion = async () => {
-		try {
-		  if (!senderToRegion) return;
-		  const response = await axiosAPI.post('/district-orders/send-to-region/', {
-			...senderToRegion,
-			order_id: orderData?.id,
-		  })
-		  if (response.status === 200) {
-			toast.success("Buyurtma muvaffaqiyatli yangilandi!");
-		  }
-		} catch (err: any) {
-		  console.error("Yangilashda xatolik:", err);
-		  toast.error(err.response?.data?.error || "Buyurtmani yangilashda xatolik yuz berdi!");
-		}
-	};
-	
-	const fetchSenderEmployees = async (newOffset = 0) => {
-		try {
-		setSenderEmployeesLoading(true); 
-		const response = await axiosAPI.get(`employees/list?limit=${limit}&offset=${newOffset}`);
-		if (response.status === 200 && Array.isArray(response.data.results)) {
-			setSenderEmployees(response.data.results);
-			setTotalCount(response.data.count);
-			setOffset(newOffset);
-		} else {
-			setSenderEmployees([]);
-		}
-		} catch (error) {
-		console.error("Hodimlarni olishda xatolik:", error);
-		} finally {
-		setSenderEmployeesLoading(false);
-		}
-	};
-	const handleModalPageClick = (page: number) => {
-	const newOffset = (page - 1) * limit;
-		fetchSenderEmployees(newOffset);
-	};
 	const fetchOrderDetail = useCallback(async () => {
 		if (!id) return;
 
@@ -1068,16 +997,7 @@ const DistrictOrderDetail: React.FC = () => {
 										</div>
 										<span>Saqlash</span>
 									</button>
-									<button
-									  className='group bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white px-4 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-normal cursor-pointer'
-									  onClick={() => { fetchSenderEmployees(), setshowRecepModal(true); }}
-									  aria-label="Saqlash"
-									>
-									  <div className='bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-colors'>
-										<Send className='w-3 h-3' />
-									  </div>
-									  <span>Yuborish</span>
-									</button>
+
 									<button
 										className='group bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-1.5 rounded-md shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-3 font-medium cursor-pointer'
 										onClick={handleDeleteOrder}
@@ -1171,115 +1091,6 @@ const DistrictOrderDetail: React.FC = () => {
 								Tanlash
 							</Button>
 						</div>
-					</div>
-				</div>
-			)}
-			
-			{showRecepModal && (
-				<div
-					className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-					onClick={() => setshowRecepModal(false)}
-				>
-					<div
-					className="bg-white rounded-lg w-[600px] p-6 shadow-lg"
-					onClick={(e) => e.stopPropagation()}
-					>
-					<div className="flex items-center justify-between border-b pb-3 mb-4">
-						<h2 className="text-lg font-semibold">Viloyatdan qabul qiluvchi xodimni tanlang</h2>
-						<button
-						className="text-xl font-bold hover:text-red-500"
-						onClick={() => setshowRecepModal(false)}
-						>
-						&times;
-						</button>
-					</div>
-
-					<div className="max-h-[400px] overflow-y-auto">
-						{loading ? ( // ✅ Modal uchun alohida loading
-						<div className="text-center py-6 text-gray-500">Yuklanmoqda...</div>
-						) : sender_employees.length === 0 ? (
-						<div className="text-center py-6 text-gray-500">Ma'lumot topilmadi</div>
-						) : (
-						<table className="w-full border-collapse">
-							<thead className="bg-gray-50 border-b">
-							<tr>
-								<th className="text-center px-4 py-2 text-sm font-semibold">Tanlash</th>
-								<th className="text-left px-4 py-2 text-sm font-semibold">F.I.Sh.</th>
-								<th className="text-center px-4 py-2 text-sm font-semibold">Lavozimi</th>
-							</tr>
-							</thead>
-							<tbody>
-							{sender_employees.map((emp, index) => (
-								<tr key={index} className="hover:bg-blue-50 transition">
-								<td className="px-4 py-2 text-center">
-									<input
-									type="checkbox"
-									onChange={(e) => {
-										if (e.target.checked) {
-										setSenderToRegion({
-											order_id: orderData?.id || "",
-											receiver_region: emp.id,
-											receiver_republic_name: emp.name,
-										});
-										} else {
-										setSenderToRegion(null);
-										}
-									}}
-									checked={senderToRegion?.receiver_region === emp.id}
-									/>
-								</td>
-								<td className="px-4 py-2 text-sm text-gray-800">{emp.name}</td>
-								<td className="px-4 py-2 text-sm text-gray-800">{emp.position}</td>
-								</tr>
-							))}
-							</tbody>
-						</table>
-						)}
-					</div>
-
-					{/* Pagination */}
-					{totalCount > limit && (
-						<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2 text-sm">
-						<span className="text-gray-600">
-							Jami: {totalCount} ta | Sahifa: {currentPage} / {totalPages}
-						</span>
-
-						<div className="flex flex-wrap justify-center gap-2">
-							<Button
-							size="middle"
-							disabled={currentPage === 1 || senderEmployeesLoading} // ✅ Modal loading
-							onClick={() => handleModalPageClick(currentPage - 1)} // ✅ Yangi funksiya
-							>
-							<ArrowBigLeftDash className="w-4 h-4" />
-							</Button>
-
-							{generatePageNumbers().map((page) => (
-							<Button
-								key={page}
-								size="middle"
-								type={page === currentPage ? "primary" : "default"}
-								onClick={() => handleModalPageClick(page)} // ✅ Yangi funksiya
-							>
-								{page}
-							</Button>
-							))}
-
-							<Button
-							size="middle"
-							disabled={currentPage === totalPages || senderEmployeesLoading} // ✅ Modal loading
-							onClick={() => handleModalPageClick(currentPage + 1)} // ✅ Yangi funksiya
-							>
-							<ArrowBigRightDash className="w-4 h-4" />
-							</Button>
-						</div>
-						</div>
-					)}
-
-					<div className="flex justify-end mt-5">
-						<Button type="primary" onClick={addSendToRegion}>
-						Saqlash
-						</Button>
-					</div>
 					</div>
 				</div>
 			)}
